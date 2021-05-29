@@ -25,24 +25,47 @@ def main():
 
         # loop through the "frames" stream
         i = 0
-        k = 0
-        event_frame = np.zeros((height, width, 3), np.uint8)
         for frame in f['frames']:
             ts = frame.timestamp
-            for e in events[k:]:
+
+            cv2.imshow('out', frame.image)
+
+            cv2.waitKey(1)
+            i += 1
+        print(i)
+
+        k = 0
+        s = 0
+        time = 33000  # 30 fps
+        ts = events[0]['timestamp']
+        event_frame = np.zeros((height, width, 3), np.uint8)
+        while k != len(events):
+
+            for j in range(k, len(events)):
+                e = events[j]
+                k += 1
+
                 if e['polarity'] == 1:
                     event_frame[e['y'], e['x']] = (0, 255, 0)
                 else:
-                    event_frame[e['y'], e['x']] = (255, 0, 0)
-                k += 1
-                if e['timestamp'] != ts:
+                    event_frame[e['y'], e['x']] = (0, 0, 255)
+
+                if k == len(events) or e['timestamp'] != events[j + 1]['timestamp']:
                     break
-            cv2.imshow('out', frame.image)
+
+            # 33 millisecond skip for each frame (30 fps video)
+            # All events in this time interval are combined into one frame
+            if k == len(events) or events[k]['timestamp'] < ts + s*time:
+                continue
+
+            s += 1
             cv2.imshow('out2', event_frame)
-            cv2.waitKey(0)
-            i += 1
-            print(k)
-        print(i)
+            # Frame reset
+            event_frame = np.zeros((height, width, 3), np.uint8)
+            cv2.waitKey(1)
+
+        print(k)
+        print(s)
 
 
 if __name__ == '__main__':
