@@ -21,8 +21,6 @@ def main():
         for e in f['events'].numpy():
             print(e.shape)'''
 
-        events = np.hstack([packet for packet in f['events'].numpy()])
-
         # loop through the "frames" stream
         i = 0
         for frame in f['frames']:
@@ -34,32 +32,33 @@ def main():
             i += 1
         print(i)
 
+        events = np.hstack([packet for packet in f['events'].numpy()])
+
+        normalize = True  # For normalization relative to timestamps
         k = 0
         s = 0
-        time = 33000  # 30 fps
+        time = 1000  # 100 fps
         ts = events[0]['timestamp']
         event_frame = np.zeros((height, width, 3), np.uint8)
         while k != len(events):
 
-            for j in range(k, len(events)):
-                e = events[j]
+            # 1 millisecond skip for each frame (100 fps video)
+            # All events in this time window are combined into one frame
+            while k != len(events) and events[k]['timestamp'] < ts + s * time:
+                e = events[k]
                 k += 1
+                if normalize:
+                    norm_factor = (e['timestamp']-ts+s*time) / time
+                else:
+                    norm_factor = 1
 
                 if e['polarity'] == 1:
-                    event_frame[e['y'], e['x']] = (0, 255, 0)
+                    event_frame[e['y'], e['x']] = (0, int(255*norm_factor), 0)
                 else:
-                    event_frame[e['y'], e['x']] = (0, 0, 255)
-
-                if k == len(events) or e['timestamp'] != events[j + 1]['timestamp']:
-                    break
-
-            # 33 millisecond skip for each frame (30 fps video)
-            # All events in this time interval are combined into one frame
-            if k == len(events) or events[k]['timestamp'] < ts + s*time:
-                continue
+                    event_frame[e['y'], e['x']] = (0, 0, int(255*norm_factor))
 
             s += 1
-            cv2.imshow('out2', event_frame)
+            cv2.imshow('out3', event_frame)
             # Frame reset
             event_frame = np.zeros((height, width, 3), np.uint8)
             cv2.waitKey(1)
