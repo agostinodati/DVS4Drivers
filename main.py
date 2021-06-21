@@ -14,7 +14,7 @@ def main1():
 
         # Access dimensions of the event stream
         height, width = f['events'].size
-
+        f['events'].n
         '''
         # loop through the "events" stream
         for e in f['events']:
@@ -73,7 +73,7 @@ def main1():
 
 
 def main2():
-    with AedatFile("C:/Users/User/Downloads/dvSave-2021_04_23_13_45_03.aedat4") as f:
+    with AedatFile("D:/Download/dvSave-2021_04_23_13_45_03.aedat4") as f:
         # list all the names of streams in the file
         print(f.names)
 
@@ -90,7 +90,7 @@ def main2():
         for packet in f['events'].numpy():
             for e in packet:
 
-                '''if k < start:
+                '''if k < start: # Per iniziare da un frame diverso da quello iniziale del video
                     k += 1
                     if video_frame['timestamp'] < e['timestamp']:
                         video_frame = f['frames'].__next__()
@@ -98,7 +98,6 @@ def main2():
 
                 if k == start:
                     ts = e['timestamp']
-
 
                 if normalize:
                     norm_factor = (ts + s * time - e['timestamp']) / time
@@ -115,13 +114,15 @@ def main2():
 
                 # 1 millisecond skip for each frame (100 fps video)
                 # All events in this time window are combined into one frame
-
                 if e['timestamp'] > ts + s * time:
+                    cv2.imshow('out3', event_frame)
+                    annotated_image = find_landmarks_frame(video_frame)
+                    cv2.imshow('out2', video_frame.image)
+                    cv2.imshow('out1', annotated_image)
                     if video_frame.timestamp < ts + s * time:
                         video_frame = f['frames'].__next__()
                     s += 1
-                    cv2.imshow('out3', event_frame)
-                    cv2.imshow('out2', video_frame.image)
+
                     # Frame reset
                     event_frame = np.zeros((height, width, 3), np.uint8)
                     cv2.waitKey(1)
@@ -184,9 +185,46 @@ def main3():
         print(s)
 
 
+def find_landmarks_frame(frame):
+    """
+        This function finds face's landmarks of the i-frame.
+    """
+    mp_drawing = mp.solutions.drawing_utils
+    mp_face_mesh = mp.solutions.face_mesh
+
+    drawing_spec = mp_drawing.DrawingSpec(thickness=1, circle_radius=1)
+
+    with mp_face_mesh.FaceMesh(
+            min_detection_confidence=0.5,
+            min_tracking_confidence=0.5) as face_mesh:
+        image = frame.image
+
+        # Flip the image horizontally for a later selfie-view display, and convert
+        # the BGR image to RGB.
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        # To improve performance, optionally mark the image as not writeable to
+        # pass by reference.
+        image.flags.writeable = False
+        results = face_mesh.process(image)
+
+        # Draw the face mesh annotations on the image.
+        image.flags.writeable = True
+        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        if results.multi_face_landmarks:
+            for face_landmarks in results.multi_face_landmarks:
+                mp_drawing.draw_landmarks(
+                    image=image,
+                    landmark_list=face_landmarks,
+                    connections=mp_face_mesh.FACE_CONNECTIONS,
+                    landmark_drawing_spec=drawing_spec,
+                    connection_drawing_spec=drawing_spec)
+        return image
+
+
 def find_landmarks_frames(frames):
     """
-        This function finds face's landmarks.
+        Not used.
+        This function finds face's landmarks for a list of frames.
     """
     mp_drawing = mp.solutions.drawing_utils
     mp_face_mesh = mp.solutions.face_mesh
@@ -225,4 +263,4 @@ def find_landmarks_frames(frames):
 
 
 if __name__ == '__main__':
-    main3()
+    main2()
