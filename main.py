@@ -73,7 +73,7 @@ def main1():
 
 
 def main2():
-    with AedatFile("D:/Download/dvSave-2021_04_23_13_45_03.aedat4") as f:
+    with AedatFile("C:/Users/User/Downloads/dvSave-2021_04_23_13_45_03.aedat4") as f:
         # list all the names of streams in the file
         print(f.names)
 
@@ -81,15 +81,24 @@ def main2():
         height, width = f['events'].size
 
         normalize = False  # For normalization relative to timestamps
+        start = 0
         k = 0  # Event counter
         s = 1  # Frame counter
-        time = 33000  # for 100 fps -> 1000 us
+        time = 16000  # for 100 fps -> 1000 us
         event_frame = np.zeros((height, width, 3), np.uint8)
+        video_frame = f['frames'].__next__()
         for packet in f['events'].numpy():
             for e in packet:
 
-                if k == 0:
+                '''if k < start:
+                    k += 1
+                    if video_frame['timestamp'] < e['timestamp']:
+                        video_frame = f['frames'].__next__()
+                    continue'''
+
+                if k == start:
                     ts = e['timestamp']
+
 
                 if normalize:
                     norm_factor = (ts + s * time - e['timestamp']) / time
@@ -106,9 +115,13 @@ def main2():
 
                 # 1 millisecond skip for each frame (100 fps video)
                 # All events in this time window are combined into one frame
+
                 if e['timestamp'] > ts + s * time:
+                    if video_frame.timestamp < ts + s * time:
+                        video_frame = f['frames'].__next__()
                     s += 1
                     cv2.imshow('out3', event_frame)
+                    cv2.imshow('out2', video_frame.image)
                     # Frame reset
                     event_frame = np.zeros((height, width, 3), np.uint8)
                     cv2.waitKey(1)
