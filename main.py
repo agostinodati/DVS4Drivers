@@ -94,10 +94,10 @@ def main():
                     cv2.imshow('Events', event_frame)
                     cv2.imshow('Video', video_frame.image)
                     cv2.imshow('Facemesh', annotated_image)
-                    annotated_image = find_landmarks_frame(cv2.GaussianBlur(event_frame, (5, 5), 0))
+                    annotated_image = find_landmarks_frame(event_frame)
                     while video_frame.timestamp < ts + s * time:
                         video_frame = f['frames'].__next__()
-
+                        #annotated
                     s += 1
 
                     # Frame reset
@@ -125,6 +125,7 @@ def find_landmarks_frame(image):
     """
         This function finds face's landmarks of the i-frame.
     """
+    image_blurred = cv2.GaussianBlur(image, (5, 5), 0)
     mp_drawing = mp.solutions.drawing_utils
     mp_face_mesh = mp.solutions.face_mesh
 
@@ -138,15 +139,15 @@ def find_landmarks_frame(image):
 
         # Flip the image horizontally for a later selfie-view display, and convert
         # the BGR image to RGB.
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        image_blurred = cv2.cvtColor(image_blurred, cv2.COLOR_BGR2RGB)
         # To improve performance, optionally mark the image as not writeable to
         # pass by reference.
-        image.flags.writeable = False
-        results = face_mesh.process(image)
+        image_blurred.flags.writeable = False
+        results = face_mesh.process(image_blurred)
 
         # Draw the face mesh annotations on the image.
-        image.flags.writeable = True
-        image2 = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        image_blurred.flags.writeable = True
+        image2 = cv2.cvtColor(image_blurred, cv2.COLOR_RGB2BGR)
         if results.multi_face_landmarks:
             for face_landmarks in results.multi_face_landmarks:
                 '''mp_drawing.draw_landmarks(
