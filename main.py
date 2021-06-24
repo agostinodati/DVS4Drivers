@@ -62,7 +62,7 @@ def main():
         event_frame = np.zeros((height, width, 1), np.uint8)
         event_frame[:, :, 0] = 127
         video_frame = f['frames'].__next__()
-        annotated_image = find_landmarks_frame(video_frame.image)
+        annotated_image = find_landmarks_frame(video_frame.image, video_frame.image)
         for packet in f['events'].numpy():
             for e in packet:
 
@@ -94,10 +94,10 @@ def main():
                     cv2.imshow('Events', event_frame)
                     cv2.imshow('Video', video_frame.image)
                     cv2.imshow('Facemesh', annotated_image)
-                    annotated_image = find_landmarks_frame(event_frame)
+                    # annotated_image = find_landmarks_frame(event_frame, )
                     while video_frame.timestamp < ts + s * time:
                         video_frame = f['frames'].__next__()
-                        #annotated
+                        annotated_image = find_landmarks_frame(event_frame, video_frame.image)
                     s += 1
 
                     # Frame reset
@@ -121,7 +121,7 @@ def only_video():
         print(i)
 
 
-def find_landmarks_frame(image):
+def find_landmarks_frame(image, video_frame):
     """
         This function finds face's landmarks of the i-frame.
     """
@@ -148,6 +148,11 @@ def find_landmarks_frame(image):
         # Draw the face mesh annotations on the image.
         image_blurred.flags.writeable = True
         image2 = cv2.cvtColor(image_blurred, cv2.COLOR_RGB2BGR)
+        if not results.multi_face_landmarks:
+            video_frame = cv2.cvtColor(video_frame, cv2.COLOR_BGR2RGB)
+            video_frame.flags.writeable = False
+            image2 = cv2.cvtColor(video_frame, cv2.COLOR_RGB2BGR)
+            results = face_mesh.process(video_frame)
         if results.multi_face_landmarks:
             for face_landmarks in results.multi_face_landmarks:
                 '''mp_drawing.draw_landmarks(
@@ -161,6 +166,7 @@ def find_landmarks_frame(image):
                 image2 = draw_landmarks(width, height, image2, face_landmarks.landmark, right_eye, image, 'Right Eye')
                 image2 = draw_landmarks(width, height, image2, face_landmarks.landmark, mouth, image, 'Mouth')
                 image2 = draw_landmarks(width, height, image2, face_landmarks.landmark, silhouette, image, 'Silhouette')
+
         return image2
 
 
