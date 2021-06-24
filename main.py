@@ -6,6 +6,12 @@ import mediapipe as mp
 import os.path
 import utility
 
+silhouette = [
+    10,  338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288,
+    397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136,
+    172, 58,  132, 93,  234, 127, 162, 21,  54,  103, 67,  109
+  ]
+
 lipsUpperOuter = [61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291]
 lipsLowerOuter = [146, 91, 181, 84, 17, 314, 405, 321, 375, 291]
 lipsUpperInner = [78, 191, 80, 81, 82, 13, 312, 311, 310, 415, 308]
@@ -27,10 +33,16 @@ leftEyeUpper2 = [342, 445, 444, 443, 442, 441, 413]
 leftEyeLower2 = [446, 261, 448, 449, 450, 451, 452, 453, 464]
 leftEyeLower3 = [372, 340, 346, 347, 348, 349, 350, 357, 465]
 
-zero_landmark = rightEyeUpper1 + rightEyeLower1 + leftEyeUpper1 + leftEyeLower1
+eye_landmark = rightEyeUpper1 + rightEyeLower1 + leftEyeUpper1 + leftEyeLower1
 
-all_landmark = lipsUpperInner + lipsLowerInner + zero_landmark
+left_eye = leftEyeUpper1 + leftEyeLower1
+right_eye = rightEyeUpper1 + rightEyeLower1
+mouth = lipsUpperInner + lipsLowerInner
 
+all_landmark = lipsUpperInner + lipsLowerInner + eye_landmark
+
+amal1 = "C:/Users/User/Downloads/dvSave-2021_04_23_13_45_03.aedat4"
+amal2 = "D:/Utorrent/dvSave-2021_05_28_18_48_58.aedat4"
 
 def main1():
     with AedatFile("D:/Utorrent/dvSave-2021_05_28_18_48_58.aedat4") as f:
@@ -98,7 +110,7 @@ def main1():
 
 
 def main2():
-    with AedatFile("D:/Download/dvSave-2021_04_23_13_45_03.aedat4") as f:
+    with AedatFile(amal1) as f:
         # list all the names of streams in the file
         print(f.names)
 
@@ -109,10 +121,11 @@ def main2():
         start = 0
         k = 0  # Event counter
         s = 1  # Frame counter
-        time = 16000  # for 100 fps -> 1000 us
-        event_frame = np.zeros((height, width, 3), np.uint8)
+        time = 50000  # for 100 fps -> 1000 us
+        event_frame = np.zeros((height, width, 1), np.uint8)
+        event_frame[:, :, 0] = 127
         video_frame = f['frames'].__next__()
-        annotated_image = find_landmarks_frame(video_frame)
+        annotated_image = find_landmarks_frame(video_frame.image)
         for packet in f['events'].numpy():
             for e in packet:
 
@@ -131,11 +144,11 @@ def main2():
                     norm_factor = 1
 
                 if e['polarity'] == 1:
-                    event_frame[e['y'], e['x']] = (0, int(255 * norm_factor), 0)
-                    # event_frame[e['y'], e['x']] = int(127 * norm_factor) + 127
+                    # event_frame[e['y'], e['x']] = (0, int(255 * norm_factor), 0)
+                    event_frame[e['y'], e['x']] = int(127 * norm_factor) + 127
                 else:
-                    event_frame[e['y'], e['x']] = (int(255 * norm_factor), 0, 0)
-                    # event_frame[e['y'], e['x']] = 127-int(127 * norm_factor)
+                    # event_frame[e['y'], e['x']] = (int(255 * norm_factor), 0, 0)
+                    event_frame[e['y'], e['x']] = 127-int(127 * norm_factor)
                 k += 1
 
                 # 1 millisecond skip for each frame (100 fps video)
@@ -144,74 +157,34 @@ def main2():
                     cv2.imshow('Events', event_frame)
                     cv2.imshow('Video', video_frame.image)
                     cv2.imshow('Facemesh', annotated_image)
-                    if video_frame.timestamp < ts + s * time:
+                    annotated_image = find_landmarks_frame(cv2.GaussianBlur(event_frame, (5, 5), 0))
+                    while video_frame.timestamp < ts + s * time:
                         video_frame = f['frames'].__next__()
-                        annotated_image = find_landmarks_frame(video_frame)
+
                     s += 1
 
                     # Frame reset
-                    event_frame = np.zeros((height, width, 3), np.uint8)
+                    event_frame = np.zeros((height, width, 1), np.uint8)
+                    event_frame[:, :, 0] = 127
                     cv2.waitKey(1)
 
         print(k)
         print(s)
 
 
-def main3():
-    # D:/Download/dvSave-2021_04_23_13_45_03.aedat4
-    print("Welcome!")
-    filepath = input('*.Aedat4 file path: ')
-    while not os.path.isfile(filepath):
-        print('File does not exists, try again.')
-        filepath = input('*.Aedat4 file path: ')
+def only_video():
+    with AedatFile("D:/Utorrent/dvSave-2021_05_28_18_48_58.aedat4") as f:
 
-    with AedatFile(filepath) as f:
-        # list all the names of streams in the file
-        print(f.names)
-
-        # Access dimensions of the event stream
-        height, width = f['events'].size
-
-        find_landmarks_frames(f['frames'])
-
-        normalize = False  # For normalization relative to timestamps
-        k = 0  # Event counter
-        s = 1  # Frame counter
-        time = 1000  # for 100 fps -> 1000 us
-        event_frame = np.zeros((height, width, 3), np.uint8)
-        for packet in f['events'].numpy():
-            for e in packet:
-
-                if k == 0:
-                    ts = e['timestamp']
-
-                if normalize:
-                    norm_factor = (ts + s * time - e['timestamp']) / time
-                else:
-                    norm_factor = 1
-
-                if e['polarity'] == 1:
-                    event_frame[e['y'], e['x']] = (0, int(255 * norm_factor), 0)
-                    # event_frame[e['y'], e['x']] = int(127 * norm_factor) + 127
-                else:
-                    event_frame[e['y'], e['x']] = (int(255 * norm_factor), 0, 0)
-                    # event_frame[e['y'], e['x']] = 127-int(127 * norm_factor)
-                k += 1
-
-                # 1 millisecond skip for each frame (100 fps video)
-                # All events in this time window are combined into one frame
-                if e['timestamp'] > ts + s * time:
-                    s += 1
-                    cv2.imshow('out3', event_frame)
-                    # Frame reset
-                    event_frame = np.zeros((height, width, 3), np.uint8)
-                    cv2.waitKey(1)
-
-        print(k)
-        print(s)
+        # loop through the "frames" stream
+        i = 0
+        for frame in f['frames']:
+            cv2.imshow('out', frame.image)
+            cv2.waitKey(1)
+            i += 1
+        print(i)
 
 
-def find_landmarks_frame(frame):
+def find_landmarks_frame(image):
     """
         This function finds face's landmarks of the i-frame.
     """
@@ -220,12 +193,11 @@ def find_landmarks_frame(frame):
 
     drawing_spec = mp_drawing.DrawingSpec(thickness=1, circle_radius=1)
 
-    height, width = frame.size
+    height, width = image.shape[:2]
 
     with mp_face_mesh.FaceMesh(
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5) as face_mesh:
-        image = frame.image
+            min_detection_confidence=0.1,
+            min_tracking_confidence=0.1) as face_mesh:
 
         # Flip the image horizontally for a later selfie-view display, and convert
         # the BGR image to RGB.
@@ -237,7 +209,7 @@ def find_landmarks_frame(frame):
 
         # Draw the face mesh annotations on the image.
         image.flags.writeable = True
-        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        image2 = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
         if results.multi_face_landmarks:
             for face_landmarks in results.multi_face_landmarks:
                 '''mp_drawing.draw_landmarks(
@@ -247,11 +219,32 @@ def find_landmarks_frame(frame):
                     landmark_drawing_spec=drawing_spec,
                     connection_drawing_spec=drawing_spec)'''
                 # rightEyeUpper0: [246, 161, 160, 159, 158, 157, 173],
-                for index in all_landmark:
-                    image2 = cv2.circle(image, (
-                    int(face_landmarks.landmark[index].x * height), int(face_landmarks.landmark[index].y * width)),
-                                        radius=0, color=(0, 0, 255), thickness=-1)
+                image2, mx, Mx, my, My = draw_landmarks(width, height, image2, face_landmarks.landmark, silhouette)
+                w = Mx - mx
+                h = My - my
+                im = cv2.resize(image[my:My, mx:Mx], (w*5, h*5))
+                cv2.imshow('Left Eye', im)
         return image2
+
+
+def draw_landmarks(width, height, image, landmarks, indexes):
+    minx = width
+    miny = height
+    maxy = 0
+    maxx = 0
+    for index in indexes:
+        x = int(landmarks[index].x * width)
+        y = int(landmarks[index].y * height)
+        if x < minx:
+            minx = x
+        if y < miny:
+            miny = y
+        if x > maxx:
+            maxx = x
+        if y > maxy:
+            maxy = y
+        image = cv2.circle(image, (x, y), radius=0, color=(0, 0, 255), thickness=2)
+    return image, minx, maxx, miny, maxy
 
 
 def find_landmarks_frames(frames):
