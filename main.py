@@ -43,74 +43,11 @@ all_landmark = lipsUpperInner + lipsLowerInner + eye_landmark
 
 amal1 = "C:/Users/User/Downloads/dvSave-2021_04_23_13_45_03.aedat4"
 amal2 = "D:/Utorrent/dvSave-2021_05_28_18_48_58.aedat4"
-
-def main1():
-    with AedatFile("D:/Utorrent/dvSave-2021_05_28_18_48_58.aedat4") as f:
-        # list all the names of streams in the file
-        print(f.names)
-
-        # Access dimensions of the event stream
-        height, width = f['events'].size
-        f['events'].n
-        '''
-        # loop through the "events" stream
-        for e in f['events']:
-            print(e.timestamp)
-        
-        # loop through the "events" stream as numpy packets
-        for e in f['events'].numpy():
-            print(e.shape)'''
-
-        # loop through the "frames" stream
-        '''i = 0
-        for frame in f['frames']:
-            cv2.imshow('out', frame.image)
-            cv2.waitKey(1)
-            i += 1
-        print(i)'''
-
-        events = np.hstack([packet for packet in f['events'].numpy()])
-
-        normalize = True  # For normalization relative to timestamps
-        k = 0  # Event counter
-        s = 1  # Frame counter
-        time = 1000  # for 100 fps -> 1000 us
-        ts = events[0]['timestamp']
-        event_frame = np.zeros((height, width, 3), np.uint8)
-        # event_frame = np.zeros((height, width, 1), np.uint8)
-        # event_frame[:,:,0] = 127
-        while k != len(events):
-
-            # 1 millisecond skip for each frame (100 fps video)
-            # All events in this time window are combined into one frame
-            while k != len(events) and events[k]['timestamp'] < ts + s * time:
-                e = events[k]
-                k += 1
-                if normalize:
-                    norm_factor = (ts + s * time - e['timestamp']) / time
-                else:
-                    norm_factor = 1
-
-                if e['polarity'] == 1:
-                    event_frame[e['y'], e['x']] = (0, int(255 * norm_factor), 0)
-                    # event_frame[e['y'], e['x']] = int(127 * norm_factor) + 127
-                else:
-                    event_frame[e['y'], e['x']] = (int(255 * norm_factor), 0, 0)
-                    # event_frame[e['y'], e['x']] = 127-int(127 * norm_factor)
-
-            s += 1
-            cv2.imshow('out3', event_frame)
-            # Frame reset
-            event_frame = np.zeros((height, width, 3), np.uint8)
-            # event_frame[:, :, :] = 0
-            cv2.waitKey(1)
-
-        print(k)
-        print(s)
+ago1 = "D:/Download/mancini.aedat4"
 
 
-def main2():
-    with AedatFile(amal1) as f:
+def main():
+    with AedatFile(ago1) as f:
         # list all the names of streams in the file
         print(f.names)
 
@@ -219,15 +156,14 @@ def find_landmarks_frame(image):
                     landmark_drawing_spec=drawing_spec,
                     connection_drawing_spec=drawing_spec)'''
                 # rightEyeUpper0: [246, 161, 160, 159, 158, 157, 173],
-                image2, mx, Mx, my, My = draw_landmarks(width, height, image2, face_landmarks.landmark, silhouette)
-                w = Mx - mx
-                h = My - my
-                im = cv2.resize(image[my:My, mx:Mx], (w*5, h*5))
-                cv2.imshow('Left Eye', im)
+                image2 = draw_landmarks(width, height, image2, face_landmarks.landmark, left_eye, image, 'Left Eye')
+                image2 = draw_landmarks(width, height, image2, face_landmarks.landmark, right_eye, image, 'Right Eye')
+                image2 = draw_landmarks(width, height, image2, face_landmarks.landmark, mouth, image, 'Mouth')
+                image2 = draw_landmarks(width, height, image2, face_landmarks.landmark, silhouette, image, 'Silhouette')
         return image2
 
 
-def draw_landmarks(width, height, image, landmarks, indexes):
+def draw_landmarks(width, height, image, landmarks, indexes, source, title):
     minx = width
     miny = height
     maxy = 0
@@ -244,7 +180,11 @@ def draw_landmarks(width, height, image, landmarks, indexes):
         if y > maxy:
             maxy = y
         image = cv2.circle(image, (x, y), radius=0, color=(0, 0, 255), thickness=2)
-    return image, minx, maxx, miny, maxy
+    w = maxx - minx
+    h = maxy - miny
+    im = cv2.resize(source[miny:maxy, minx:maxx], (w * 5, h * 5))
+    cv2.imshow(title, im)
+    return image
 
 
 def find_landmarks_frames(frames):
@@ -289,4 +229,4 @@ def find_landmarks_frames(frames):
 
 
 if __name__ == '__main__':
-    main2()
+    main()
