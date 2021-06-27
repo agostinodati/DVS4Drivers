@@ -1,5 +1,7 @@
 import cv2
 import os
+from dv import AedatFile
+import numpy as np
 
 
 def check_dir(path):
@@ -48,3 +50,49 @@ def frame2avi(frames):
     out.release()
     print('*.avi created!')
     return path_video
+
+
+def only_video(file):
+    with AedatFile(file) as f:
+
+        # loop through the "frames" stream
+        i = 0
+        for frame in f['frames']:
+            cv2.imshow('out', frame.image)
+            cv2.waitKey(1)
+            i += 1
+        print(i)
+
+
+def optical_flow(old_gray, frame_gray, features):
+    mask = np.zeros_like(old_gray)
+    lk_params = dict(winSize=(15, 15),
+                     maxLevel=2,
+                     criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
+    # calculate optical flow
+    p1, st, err = cv2.calcOpticalFlowPyrLK(old_gray, frame_gray, features, None, **lk_params)
+    # Select good points
+    if p1 is not None:
+        s = np.count_nonzero(st)
+        good_new = np.empty((s,2), np.float32)
+        good_old = np.empty((s, 2), np.float32)
+        i = 0
+        k = 0
+        for n in st:
+            if n == 1:
+                good_new[k] = p1[i]
+                good_old[k] = features[i]
+                k += 1
+            i += 1
+
+    # draw the tracks
+    for i, (new, old) in enumerate(zip(good_new, good_old)):
+        a, b = new.ravel()
+        c, d = old.ravel()
+        mask = cv2.line(mask, (int(a), int(b)), (int(c), int(d)), (255, 255, 255), 1)
+        frame = cv2.circle(old_gray, (int(a), int(b)), 5, (0, 0, 0), -1)
+    img = cv2.add(old_gray, mask)
+    return img
+    # Now update the previous frame and previous points
+    # old_gray = frame_gray.copy()
+    # p0 = good_new.reshape(-1, 1, 2)

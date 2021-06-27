@@ -39,7 +39,7 @@ left_eye = leftEyeUpper1 + leftEyeLower1
 right_eye = rightEyeUpper1 + rightEyeLower1
 mouth = lipsUpperInner + lipsLowerInner
 
-all_landmark = lipsUpperInner + lipsLowerInner + eye_landmark
+all_landmarks = left_eye + right_eye + mouth+ silhouette
 
 amal1 = "C:/Users/User/Downloads/dvSave-2021_04_23_13_45_03.aedat4"
 amal2 = "D:/Utorrent/dvSave-2021_05_28_18_48_58.aedat4"
@@ -47,7 +47,7 @@ ago1 = "D:/Download/mancini.aedat4"
 
 
 def main():
-    with AedatFile(ago1) as f:
+    with AedatFile(amal1) as f:
         # list all the names of streams in the file
         print(f.names)
 
@@ -61,6 +61,7 @@ def main():
         time = 50000  # for 100 fps -> 1000 us
         event_frame = np.zeros((height, width, 1), np.uint8)
         event_frame[:, :, 0] = 127
+        old_event_frame = event_frame
         video_frame = f['frames'].__next__()
         annotated_image = find_landmarks_frame(video_frame.image, video_frame.image)
         for packet in f['events'].numpy():
@@ -95,30 +96,22 @@ def main():
                     cv2.imshow('Video', video_frame.image)
                     cv2.imshow('Facemesh', annotated_image)
                     # annotated_image = find_landmarks_frame(event_frame, )
+
                     while video_frame.timestamp < ts + s * time:
+
+                        #annotated_image = find_landmarks_frame(event_frame, video_frame.image)
+                        annotated_image = find_optical_flow(old_event_frame, event_frame, video_frame.image)
                         video_frame = f['frames'].__next__()
-                        annotated_image = find_landmarks_frame(event_frame, video_frame.image)
                     s += 1
 
                     # Frame reset
+                    old_event_frame = event_frame
                     event_frame = np.zeros((height, width, 1), np.uint8)
                     event_frame[:, :, 0] = 127
                     cv2.waitKey(1)
 
         print(k)
         print(s)
-
-
-def only_video():
-    with AedatFile("D:/Utorrent/dvSave-2021_05_28_18_48_58.aedat4") as f:
-
-        # loop through the "frames" stream
-        i = 0
-        for frame in f['frames']:
-            cv2.imshow('out', frame.image)
-            cv2.waitKey(1)
-            i += 1
-        print(i)
 
 
 def find_landmarks_frame(image, video_frame):
@@ -168,6 +161,51 @@ def find_landmarks_frame(image, video_frame):
                 image2 = draw_landmarks(width, height, image2, face_landmarks.landmark, silhouette, image, 'Silhouette')
 
         return image2
+
+
+def find_optical_flow(old_frame, curr_frame, video_frame):
+    """
+        This function finds face's landmarks of the i-frame.
+    """
+    # old_frame = cv2.GaussianBlur(old_frame, (5, 5), 0)
+    # curr_frame = cv2.GaussianBlur(curr_frame, (5, 5), 0)
+    mp_drawing = mp.solutions.drawing_utils
+    mp_face_mesh = mp.solutions.face_mesh
+
+    drawing_spec = mp_drawing.DrawingSpec(thickness=1, circle_radius=1)
+
+    height, width = video_frame.shape[:2]
+
+    with mp_face_mesh.FaceMesh(
+            min_detection_confidence=0.1,
+            min_tracking_confidence=0.1) as face_mesh:
+
+        # the BGR image to RGB.
+        image_blurred = cv2.cvtColor(video_frame, cv2.COLOR_BGR2RGB)
+        # To improve performance, optionally mark the image as not writeable to
+        # pass by reference.
+        image_blurred.flags.writeable = False
+        results = face_mesh.process(image_blurred)
+
+        # Draw the face mesh annotations on the image.
+        image_blurred.flags.writeable = True
+        image2 = cv2.cvtColor(image_blurred, cv2.COLOR_RGB2BGR)
+        if results.multi_face_landmarks:
+            for face_landmarks in results.multi_face_landmarks:
+                '''mp_drawing.draw_landmarks(
+                    image=image,
+                    landmark_list=face_landmarks,
+                    connections=mp_face_mesh.FACE_CONNECTIONS,
+                    landmark_drawing_spec=drawing_spec,
+                    connection_drawing_spec=drawing_spec)'''
+                features = np.empty((len(all_landmarks), 2), np.float32)
+                i = 0
+                for index in all_landmarks:
+                    features[i,0] = face_landmarks.landmark[index].x * width
+                    features[i,1] = face_landmarks.landmark[index].y * height
+                    i += 1
+                image = utility.optical_flow(old_frame, curr_frame, features)
+        return image
 
 
 def draw_landmarks(width, height, image, landmarks, indexes, source, title):
