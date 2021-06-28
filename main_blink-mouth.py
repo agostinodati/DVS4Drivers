@@ -58,7 +58,7 @@ def main():
         start = 0
         k = 0  # Event counter
         s = 1  # Frame counter
-        time = 50000  # for 100 fps -> 1000 us
+        time = 8000  # for 100 fps -> 10000 us
         event_frame = np.zeros((height, width, 1), np.uint8)
         event_frame[:, :, 0] = 127
         old_event_frame = event_frame

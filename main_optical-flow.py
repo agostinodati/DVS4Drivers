@@ -55,15 +55,19 @@ def main():
         height, width = f['events'].size
 
         normalize = False  # For normalization relative to timestamps
+
         start = 0
         k = 0  # Event counter
         s = 1  # Frame counter
-        time = 50000  # for 100 fps -> 1000 us
+        time = 8000  # for 100 fps -> 10000 us
         event_frame = np.zeros((height, width, 1), np.uint8)
         event_frame[:, :, 0] = 127
+
         old_event_frame = event_frame
         video_frame = f['frames'].__next__()
-        annotated_image = find_optical_flow(video_frame.image, video_frame.image, video_frame.image)
+
+        annotated_image = find_optical_flow(old_event_frame, video_frame.image, video_frame.image)
+
         for packet in f['events'].numpy():
             for e in packet:
 
@@ -97,6 +101,69 @@ def main():
 
                     # Frame reset
                     old_event_frame = event_frame
+                    event_frame = np.zeros((height, width, 1), np.uint8)
+                    event_frame[:, :, 0] = 127
+                    cv2.waitKey(1)
+
+        print(k)
+        print(s)
+
+
+def main_optical_flow():
+    with AedatFile(ago1) as f:
+        # list all the names of streams in the file
+        print(f.names)
+
+        # Access dimensions of the event stream
+        height, width = f['events'].size
+
+        normalize = False  # For normalization relative to timestamps
+        start = 0
+        k = 0  # Event counter
+        s = 1  # Frame counter
+        time = 8000  # for 100 fps -> 10000 us
+        event_frame = np.zeros((height, width, 1), np.uint8)
+        event_frame[:, :, 0] = 127
+        old_event_frame = event_frame
+        video_frame = f['frames'].__next__()
+        annotated_image = event_frame
+        old_landmarks = calc_landmarks(video_frame.image)
+        for packet in f['events'].numpy():
+            for e in packet:
+
+                if k == start:
+                    ts = video_frame.timestamp  # to check
+
+                if normalize:
+                    norm_factor = (ts + s * time - e['timestamp']) / time
+                else:
+                    norm_factor = 1
+
+                if e['polarity'] == 1:
+                    # event_frame[e['y'], e['x']] = (0, int(255 * norm_factor), 0)
+                    event_frame[e['y'], e['x']] = int(127 * norm_factor) + 127
+                else:
+                    # event_frame[e['y'], e['x']] = (int(255 * norm_factor), 0, 0)
+                    event_frame[e['y'], e['x']] = 127-int(127 * norm_factor)
+                k += 1
+
+                # 1 millisecond skip for each frame (100 fps video)
+                # All events in this time window are combined into one frame
+                if e['timestamp'] >= ts + s * time:
+                    while video_frame.timestamp <= ts + s * time:
+                        # TODO: buffer di sincronizzazione
+                        new_landmarks_true = calc_landmarks(video_frame.image)
+                        new_landmarks = None # TODO: funzione di probabilità che assegna None in base ad una %
+                        if new_landmarks is None:
+                            new_landmarks, st = utility.optical_flow(old_event_frame, event_frame, old_landmarks)
+                            utility.draw_landmarks_optical_flow(old_landmarks, new_landmarks, st, video_frame.image)
+                        old_landmarks = new_landmarks_true
+                        video_frame = f['frames'].__next__()
+
+                    s += 1
+                    old_event_frame = event_frame
+
+                    # Frame reset
                     event_frame = np.zeros((height, width, 1), np.uint8)
                     event_frame[:, :, 0] = 127
                     cv2.waitKey(1)
@@ -144,5 +211,43 @@ def find_optical_flow(old_frame, curr_frame, video_frame):
         return image
 
 
+def calc_landmarks(video_frame):
+    """
+        This function finds face's landmarks of the i-frame.
+    """
+    mp_drawing = mp.solutions.drawing_utils
+    mp_face_mesh = mp.solutions.face_mesh
+
+    drawing_spec = mp_drawing.DrawingSpec(thickness=1, circle_radius=1)
+
+    height, width = video_frame.shape[:2]
+
+    with mp_face_mesh.FaceMesh(
+            min_detection_confidence=0.1,
+            min_tracking_confidence=0.1) as face_mesh:
+
+        # the BGR image to RGB.
+        image_blurred = cv2.cvtColor(video_frame, cv2.COLOR_BGR2RGB)
+        # To improve performance, optionally mark the image as not writeable to
+        # pass by reference.
+        image_blurred.flags.writeable = False
+        results = face_mesh.process(image_blurred)
+
+        # Draw the face mesh annotations on the image.
+        image_blurred.flags.writeable = True
+        image2 = cv2.cvtColor(image_blurred, cv2.COLOR_RGB2BGR)
+        if results.multi_face_landmarks:
+            for face_landmarks in results.multi_face_landmarks:
+                features = np.empty((len(all_landmarks), 2), np.float32)
+                i = 0
+                for index in all_landmarks:
+                    features[i, 0] = face_landmarks.landmark[index].x * width
+                    features[i, 1] = face_landmarks.landmark[index].y * height
+                    i += 1
+            return features
+        else:
+            return None
+
+
 if __name__ == '__main__':
-    main()
+    main_optical_flow()
