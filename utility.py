@@ -66,7 +66,7 @@ def only_video(file):
 
 def optical_flow(old_gray, frame_gray, features):
     mask = np.zeros_like(old_gray)
-    lk_params = dict(winSize=(15, 15),
+    lk_params = dict(winSize=(31, 31),
                      maxLevel=2,
                      criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
     # calculate optical flow
@@ -74,7 +74,7 @@ def optical_flow(old_gray, frame_gray, features):
     # Select good points
     if p1 is not None:
         s = np.count_nonzero(st)
-        good_new = np.empty((s,2), np.float32)
+        good_new = np.empty((s, 2), np.float32)
         good_old = np.empty((s, 2), np.float32)
         i = 0
         k = 0
@@ -96,3 +96,27 @@ def optical_flow(old_gray, frame_gray, features):
     # Now update the previous frame and previous points
     # old_gray = frame_gray.copy()
     # p0 = good_new.reshape(-1, 1, 2)
+
+
+def draw_landmarks(width, height, image, landmarks, indexes, source, title):
+    minx = width
+    miny = height
+    maxy = 0
+    maxx = 0
+    for index in indexes:
+        x = int(landmarks[index].x * width)
+        y = int(landmarks[index].y * height)
+        if x < minx:
+            minx = x
+        if y < miny:
+            miny = y
+        if x > maxx:
+            maxx = x
+        if y > maxy:
+            maxy = y
+        image = cv2.circle(image, (x, y), radius=0, color=(0, 0, 255), thickness=2)
+    w = maxx - minx
+    h = maxy - miny
+    im = cv2.resize(source[miny:maxy, minx:maxx], (w * 5, h * 5))
+    cv2.imshow(title, im)
+    return image

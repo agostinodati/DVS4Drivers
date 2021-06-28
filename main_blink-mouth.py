@@ -47,7 +47,7 @@ ago1 = "D:/Download/mancini.aedat4"
 
 
 def main():
-    with AedatFile(amal1) as f:
+    with AedatFile(ago1) as f:
         # list all the names of streams in the file
         print(f.names)
 
@@ -95,12 +95,9 @@ def main():
                     cv2.imshow('Events', event_frame)
                     cv2.imshow('Video', video_frame.image)
                     cv2.imshow('Facemesh', annotated_image)
-                    # annotated_image = find_landmarks_frame(event_frame, )
 
                     while video_frame.timestamp < ts + s * time:
-
-                        #annotated_image = find_landmarks_frame(event_frame, video_frame.image)
-                        annotated_image = find_optical_flow(old_event_frame, event_frame, video_frame.image)
+                        annotated_image = find_landmarks_frame(event_frame, video_frame.image)
                         video_frame = f['frames'].__next__()
                     s += 1
 
@@ -154,123 +151,11 @@ def find_landmarks_frame(image, video_frame):
                     connections=mp_face_mesh.FACE_CONNECTIONS,
                     landmark_drawing_spec=drawing_spec,
                     connection_drawing_spec=drawing_spec)'''
-                # rightEyeUpper0: [246, 161, 160, 159, 158, 157, 173],
-                image2 = draw_landmarks(width, height, image2, face_landmarks.landmark, left_eye, image, 'Left Eye')
-                image2 = draw_landmarks(width, height, image2, face_landmarks.landmark, right_eye, image, 'Right Eye')
-                image2 = draw_landmarks(width, height, image2, face_landmarks.landmark, mouth, image, 'Mouth')
-                image2 = draw_landmarks(width, height, image2, face_landmarks.landmark, silhouette, image, 'Silhouette')
-
+                image2 = utility.draw_landmarks(width, height, image2, face_landmarks.landmark, left_eye, image, 'Left Eye')
+                image2 = utility.draw_landmarks(width, height, image2, face_landmarks.landmark, right_eye, image, 'Right Eye')
+                image2 = utility.draw_landmarks(width, height, image2, face_landmarks.landmark, mouth, image, 'Mouth')
+                image2 = utility.draw_landmarks(width, height, image2, face_landmarks.landmark, silhouette, image, 'Silhouette')
         return image2
-
-
-def find_optical_flow(old_frame, curr_frame, video_frame):
-    """
-        This function finds face's landmarks of the i-frame.
-    """
-    # old_frame = cv2.GaussianBlur(old_frame, (5, 5), 0)
-    # curr_frame = cv2.GaussianBlur(curr_frame, (5, 5), 0)
-    mp_drawing = mp.solutions.drawing_utils
-    mp_face_mesh = mp.solutions.face_mesh
-
-    drawing_spec = mp_drawing.DrawingSpec(thickness=1, circle_radius=1)
-
-    height, width = video_frame.shape[:2]
-
-    with mp_face_mesh.FaceMesh(
-            min_detection_confidence=0.1,
-            min_tracking_confidence=0.1) as face_mesh:
-
-        # the BGR image to RGB.
-        image_blurred = cv2.cvtColor(video_frame, cv2.COLOR_BGR2RGB)
-        # To improve performance, optionally mark the image as not writeable to
-        # pass by reference.
-        image_blurred.flags.writeable = False
-        results = face_mesh.process(image_blurred)
-
-        # Draw the face mesh annotations on the image.
-        image_blurred.flags.writeable = True
-        image2 = cv2.cvtColor(image_blurred, cv2.COLOR_RGB2BGR)
-        if results.multi_face_landmarks:
-            for face_landmarks in results.multi_face_landmarks:
-                '''mp_drawing.draw_landmarks(
-                    image=image,
-                    landmark_list=face_landmarks,
-                    connections=mp_face_mesh.FACE_CONNECTIONS,
-                    landmark_drawing_spec=drawing_spec,
-                    connection_drawing_spec=drawing_spec)'''
-                features = np.empty((len(all_landmarks), 2), np.float32)
-                i = 0
-                for index in all_landmarks:
-                    features[i,0] = face_landmarks.landmark[index].x * width
-                    features[i,1] = face_landmarks.landmark[index].y * height
-                    i += 1
-                image = utility.optical_flow(old_frame, curr_frame, features)
-        return image
-
-
-def draw_landmarks(width, height, image, landmarks, indexes, source, title):
-    minx = width
-    miny = height
-    maxy = 0
-    maxx = 0
-    for index in indexes:
-        x = int(landmarks[index].x * width)
-        y = int(landmarks[index].y * height)
-        if x < minx:
-            minx = x
-        if y < miny:
-            miny = y
-        if x > maxx:
-            maxx = x
-        if y > maxy:
-            maxy = y
-        image = cv2.circle(image, (x, y), radius=0, color=(0, 0, 255), thickness=2)
-    w = maxx - minx
-    h = maxy - miny
-    im = cv2.resize(source[miny:maxy, minx:maxx], (w * 5, h * 5))
-    cv2.imshow(title, im)
-    return image
-
-
-def find_landmarks_frames(frames):
-    """
-        Not used.
-        This function finds face's landmarks for a list of frames.
-    """
-    mp_drawing = mp.solutions.drawing_utils
-    mp_face_mesh = mp.solutions.face_mesh
-
-    drawing_spec = mp_drawing.DrawingSpec(thickness=1, circle_radius=1)
-
-    with mp_face_mesh.FaceMesh(
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5) as face_mesh:
-        for frame in frames:
-            image = frame.image
-
-            # Flip the image horizontally for a later selfie-view display, and convert
-            # the BGR image to RGB.
-            image = cv2.cvtColor(cv2.flip(image, 1), cv2.COLOR_BGR2RGB)
-            # To improve performance, optionally mark the image as not writeable to
-            # pass by reference.
-            image.flags.writeable = False
-            results = face_mesh.process(image)
-
-            # Draw the face mesh annotations on the image.
-            image.flags.writeable = True
-            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-            if results.multi_face_landmarks:
-                for face_landmarks in results.multi_face_landmarks:
-                    mp_drawing.draw_landmarks(
-                        image=image,
-                        landmark_list=face_landmarks,
-                        connections=mp_face_mesh.FACE_CONNECTIONS,
-                        landmark_drawing_spec=drawing_spec,
-                        connection_drawing_spec=drawing_spec)
-            cv2.imshow('MediaPipe FaceMesh', image)
-            cv2.waitKey(1)
-            if cv2.waitKey(5) & 0xFF == 27:
-                break
 
 
 if __name__ == '__main__':
