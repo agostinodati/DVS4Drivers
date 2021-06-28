@@ -5,6 +5,7 @@ import numpy as np
 import mediapipe as mp
 import os.path
 import utility
+import random
 
 silhouette = [
     10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288,
@@ -110,7 +111,7 @@ def main():
 
 
 def main_optical_flow():
-    with AedatFile(amal1) as f:
+    with AedatFile(ago1) as f:
         # list all the names of streams in the file
         print(f.names)
 
@@ -121,10 +122,10 @@ def main_optical_flow():
         start = 0
         k = 0  # Event counter
         s = 1  # Frame counter
-        dt = 19000  # for 100 fps -> 10000 us
+        dt = 8000  # for 100 fps -> 10000 us
         video_dt = 39980
-        delay_old_frame = 10000
-        advance_new_frame = 10000
+        delay_old_frame = 0
+        advance_new_frame = 0
 
         new_event_frame = np.zeros((height, width, 1), np.uint8)
         new_event_frame[:, :, 0] = 127
@@ -157,7 +158,10 @@ def main_optical_flow():
                         cv2.imshow('New Event', new_event_frame)
                         # TODO: buffer di sincronizzazione
                         new_landmarks_true = calc_landmarks(video_frame.image)
-                        new_landmarks = None  # TODO: funzione di probabilità che assegna None in base ad una %
+                        if random.randint(1, 10) <= 5:
+                            new_landmarks = None  # TODO: funzione di probabilità che assegna None in base ad una %
+                        else:
+                            new_landmarks = new_landmarks_true
                         facemesh_fail = False
                         if new_landmarks is None:
                             facemesh_fail = True
@@ -167,12 +171,12 @@ def main_optical_flow():
                             else:
                                 new_landmarks, st = utility.optical_flow(old_event_frame, new_event_frame,
                                                                          old_landmarks)
-                            utility.draw_landmarks_optical_flow(old_landmarks, new_landmarks, st, video_frame.image)
-                        old_landmarks = new_landmarks_true
+                            utility.draw_landmarks_optical_flow(old_landmarks, new_landmarks, st, video_frame.image, new_landmarks_true)
+                        old_landmarks = new_landmarks
 
                     s += 1
                     previous_facemesh_fail = facemesh_fail
-                    previous_stored_new_frame = new_event_frame
+                    previous_stored_new_frame = new_event_frame.copy()
                     # Frame reset
                     new_event_frame[:, :, 0] = 127
                     old_event_frame[:, :, 0] = 127
