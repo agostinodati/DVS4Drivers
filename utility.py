@@ -53,6 +53,7 @@ def frame2avi(frames):
 
 
 def only_video(file):
+    old_ts = 0
     with AedatFile(file) as f:
 
         # loop through the "frames" stream
@@ -60,6 +61,8 @@ def only_video(file):
         for frame in f['frames']:
             cv2.imshow('out', frame.image)
             cv2.waitKey(1)
+            print(frame.timestamp-old_ts)
+            old_ts = frame.timestamp
             i += 1
         print(i)
 
@@ -126,3 +129,19 @@ def draw_landmarks_optical_flow(old_landmarks, new_landmarks, st, video_frame):
     img = cv2.add(frame, mask)
     cv2.imshow('Optical flow', img)
 
+
+def accumulate(event, frame):
+    '''if normalize:
+        # TODO edit normalization
+        norm_factor = (ts1 + s * dt - e['timestamp']) / dt
+    else:
+        norm_factor = 1'''
+
+    norm_factor = 1
+    if event['polarity'] == 1:
+        # event_frame[e['y'], e['x']] = (0, int(255 * norm_factor), 0)
+        frame[event['y'], event['x']] = int(127 * norm_factor) + 127
+    else:
+        # event_frame[e['y'], e['x']] = (int(255 * norm_factor), 0, 0)
+        frame[event['y'], event['x']] = 127 - int(127 * norm_factor)
+    return frame

@@ -7,10 +7,10 @@ import os.path
 import utility
 
 silhouette = [
-    10,  338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288,
+    10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288,
     397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136,
-    172, 58,  132, 93,  234, 127, 162, 21,  54,  103, 67,  109
-  ]
+    172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109
+]
 
 lipsUpperOuter = [61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291]
 lipsLowerOuter = [146, 91, 181, 84, 17, 314, 405, 321, 375, 291]
@@ -39,7 +39,7 @@ left_eye = leftEyeUpper1 + leftEyeLower1
 right_eye = rightEyeUpper1 + rightEyeLower1
 mouth = lipsUpperInner + lipsLowerInner
 
-all_landmarks = left_eye + right_eye + mouth+ silhouette
+all_landmarks = left_eye + right_eye + mouth + silhouette
 
 amal1 = "C:/Users/User/Downloads/dvSave-2021_04_23_13_45_03.aedat4"
 amal2 = "D:/Utorrent/dvSave-2021_05_28_18_48_58.aedat4"
@@ -84,7 +84,7 @@ def main():
                     event_frame[e['y'], e['x']] = int(127 * norm_factor) + 127
                 else:
                     # event_frame[e['y'], e['x']] = (int(255 * norm_factor), 0, 0)
-                    event_frame[e['y'], e['x']] = 127-int(127 * norm_factor)
+                    event_frame[e['y'], e['x']] = 127 - int(127 * norm_factor)
                 k += 1
 
                 # 1 millisecond skip for each frame (100 fps video)
@@ -110,7 +110,7 @@ def main():
 
 
 def main_optical_flow():
-    with AedatFile(ago1) as f:
+    with AedatFile(amal1) as f:
         # list all the names of streams in the file
         print(f.names)
 
@@ -121,51 +121,61 @@ def main_optical_flow():
         start = 0
         k = 0  # Event counter
         s = 1  # Frame counter
-        time = 8000  # for 100 fps -> 10000 us
-        event_frame = np.zeros((height, width, 1), np.uint8)
-        event_frame[:, :, 0] = 127
-        old_event_frame = event_frame
+        dt = 19000  # for 100 fps -> 10000 us
+        video_dt = 39980
+        delay_old_frame = 10000
+        advance_new_frame = 10000
+
+        new_event_frame = np.zeros((height, width, 1), np.uint8)
+        new_event_frame[:, :, 0] = 127
+        old_event_frame = new_event_frame.copy()
         video_frame = f['frames'].__next__()
-        annotated_image = event_frame
+        annotated_image = new_event_frame
         old_landmarks = calc_landmarks(video_frame.image)
+        ts1 = video_frame.timestamp
+        previous_facemesh_fail = False
         for packet in f['events'].numpy():
             for e in packet:
 
-                if k == start:
-                    ts = video_frame.timestamp  # to check
+                ts = e['timestamp']
+                if ts1 + delay_old_frame <= ts < ts1 + delay_old_frame + dt:
+                    old_event_frame = utility.accumulate(e, old_event_frame)
+                    k += 1
 
-                if normalize:
-                    norm_factor = (ts + s * time - e['timestamp']) / time
-                else:
-                    norm_factor = 1
-
-                if e['polarity'] == 1:
-                    # event_frame[e['y'], e['x']] = (0, int(255 * norm_factor), 0)
-                    event_frame[e['y'], e['x']] = int(127 * norm_factor) + 127
-                else:
-                    # event_frame[e['y'], e['x']] = (int(255 * norm_factor), 0, 0)
-                    event_frame[e['y'], e['x']] = 127-int(127 * norm_factor)
-                k += 1
+                if ts1 + video_dt - advance_new_frame - dt <= ts < ts1 + video_dt - advance_new_frame:
+                    new_event_frame = utility.accumulate(e, new_event_frame)
+                    k += 1
 
                 # 1 millisecond skip for each frame (100 fps video)
                 # All events in this time window are combined into one frame
-                if e['timestamp'] >= ts + s * time:
-                    while video_frame.timestamp <= ts + s * time:
+                if ts >= ts1 + video_dt:
+                    while video_frame.timestamp <= ts:
+                        video_frame = f['frames'].__next__()
+                        ts1 = video_frame.timestamp
+                        cv2.imshow('Video', video_frame.image)
+                        cv2.imshow('Old Event', old_event_frame)
+                        cv2.imshow('New Event', new_event_frame)
                         # TODO: buffer di sincronizzazione
                         new_landmarks_true = calc_landmarks(video_frame.image)
-                        new_landmarks = None # TODO: funzione di probabilità che assegna None in base ad una %
+                        new_landmarks = None  # TODO: funzione di probabilità che assegna None in base ad una %
+                        facemesh_fail = False
                         if new_landmarks is None:
-                            new_landmarks, st = utility.optical_flow(old_event_frame, event_frame, old_landmarks)
+                            facemesh_fail = True
+                            if facemesh_fail and previous_facemesh_fail:
+                                new_landmarks, st = utility.optical_flow(previous_stored_new_frame, new_event_frame,
+                                                                         old_landmarks)
+                            else:
+                                new_landmarks, st = utility.optical_flow(old_event_frame, new_event_frame,
+                                                                         old_landmarks)
                             utility.draw_landmarks_optical_flow(old_landmarks, new_landmarks, st, video_frame.image)
                         old_landmarks = new_landmarks_true
-                        video_frame = f['frames'].__next__()
 
                     s += 1
-                    old_event_frame = event_frame
-
+                    previous_facemesh_fail = facemesh_fail
+                    previous_stored_new_frame = new_event_frame
                     # Frame reset
-                    event_frame = np.zeros((height, width, 1), np.uint8)
-                    event_frame[:, :, 0] = 127
+                    new_event_frame[:, :, 0] = 127
+                    old_event_frame[:, :, 0] = 127
                     cv2.waitKey(1)
 
         print(k)
@@ -251,3 +261,4 @@ def calc_landmarks(video_frame):
 
 if __name__ == '__main__':
     main_optical_flow()
+    # utility.only_video(amal2)
