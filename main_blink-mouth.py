@@ -1,4 +1,5 @@
 from dv import NetworkEventInput
+from dv import NetworkFrameInput
 from dv import AedatFile
 import cv2
 import numpy as np
@@ -44,10 +45,11 @@ all_landmarks = left_eye + right_eye + mouth+ silhouette
 amal1 = "C:/Users/User/Downloads/dvSave-2021_04_23_13_45_03.aedat4"
 amal2 = "D:/Utorrent/dvSave-2021_05_28_18_48_58.aedat4"
 ago1 = "D:/Download/mancini.aedat4"
+ago2 = "D:/Download/mancini_notte.aedat4"
 
 
 def main():
-    with AedatFile(ago1) as f:
+    with AedatFile(ago2) as f:
         # list all the names of streams in the file
         print(f.names)
 
@@ -111,6 +113,72 @@ def main():
         print(s)
 
 
+def main2():
+    with NetworkEventInput(address='127.0.0.1', port=9999) as ev, \
+            NetworkFrameInput(address='127.0.0.1', port=8888) as f:
+
+        height = 260
+        width = 346
+
+        normalize = False  # For normalization relative to timestamps
+
+        start = 0
+        k = 0  # Event counter
+        s = 1  # Frame counter
+        time = 8000  # for 100 fps -> 10000 us
+        event_frame = np.zeros((height, width, 1), np.uint8)
+        event_frame[:, :, 0] = 127
+        old_event_frame = event_frame
+        video_frame = f.__next__()
+        print(video_frame.timestamp)
+
+        annotated_image = find_landmarks_frame(video_frame.image, video_frame.image)
+        for e in ev:
+
+            '''if k < start: # Per iniziare da un frame diverso da quello iniziale del video
+                k += 1
+                if video_frame['timestamp'] < e['timestamp']:
+                    video_frame = f['frames'].__next__()
+                continue'''
+
+            if k == start:
+                ts = e.timestamp
+
+            if normalize:
+                norm_factor = (ts + s * time - e['timestamp']) / time
+            else:
+                norm_factor = 1
+
+            if e.polarity == 1:
+                # event_frame[e['y'], e['x']] = (0, int(255 * norm_factor), 0)
+                event_frame[e.y, e.x] = int(127 * norm_factor) + 127
+            else:
+                # event_frame[e['y'], e['x']] = (int(255 * norm_factor), 0, 0)
+                event_frame[e.y, e.x] = 127 - int(127 * norm_factor)
+            k += 1
+
+            # 1 millisecond skip for each frame (100 fps video)
+            # All events in this time window are combined into one frame
+            if e.timestamp > ts + s * time:
+                cv2.imshow('Events', event_frame)
+                cv2.imshow('Video', video_frame.image)
+                cv2.imshow('Facemesh', annotated_image)
+
+                while video_frame.timestamp < ts + s * time:
+                    annotated_image = find_landmarks_frame(event_frame, video_frame.image)
+                    video_frame = f.__next__()
+                s += 1
+
+                # Frame reset
+                old_event_frame = event_frame
+                event_frame = np.zeros((height, width, 1), np.uint8)
+                event_frame[:, :, 0] = 127
+                cv2.waitKey(1)
+
+        print(k)
+        print(s)
+
+
 def find_landmarks_frame(image, video_frame):
     """
         This function finds face's landmarks of the i-frame.
@@ -159,4 +227,4 @@ def find_landmarks_frame(image, video_frame):
 
 
 if __name__ == '__main__':
-    main()
+    main2()

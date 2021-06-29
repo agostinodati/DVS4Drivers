@@ -163,10 +163,10 @@ def accumulate(event, frame):
         norm_factor = 1'''
 
     norm_factor = 1
-    if event['polarity'] == 1:
+    if event.polarity == 1:
         # event_frame[e['y'], e['x']] = (0, int(255 * norm_factor), 0)
-        frame[event['y'], event['x']] = int(127 * norm_factor) + 127
+        frame[event.y, event.x] = int(127 * norm_factor) + 127
     else:
         # event_frame[e['y'], e['x']] = (int(255 * norm_factor), 0, 0)
-        frame[event['y'], event['x']] = 127 - int(127 * norm_factor)
+        frame[event.y, event.x] = 127 - int(127 * norm_factor)
     return frame
