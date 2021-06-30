@@ -49,7 +49,7 @@ ago2 = "D:/Download/mancini_notte.aedat4"
 
 
 def main():
-    with AedatFile(ago2) as f:
+    with AedatFile(ago1) as f:
         # list all the names of streams in the file
         print(f.names)
 
@@ -120,14 +120,14 @@ def main2():
         height = 260
         width = 346
 
-        normalize = False  # For normalization relative to timestamps
+        normalize = True  # For normalization relative to timestamps
 
         start = 0
         k = 0  # Event counter
         s = 1  # Frame counter
         time = 8000  # for 100 fps -> 10000 us
         event_frame = np.zeros((height, width, 1), np.uint8)
-        event_frame[:, :, 0] = 127
+        event_frame[:, :, 0] = 0
         old_event_frame = event_frame
         video_frame = f.__next__()
         print(video_frame.timestamp)
@@ -157,6 +157,7 @@ def main2():
                 event_frame[e.y, e.x] = 127 - int(127 * norm_factor)
             k += 1
 
+
             # 1 millisecond skip for each frame (100 fps video)
             # All events in this time window are combined into one frame
             if e.timestamp > ts + s * time:
@@ -171,7 +172,6 @@ def main2():
 
                 # Frame reset
                 old_event_frame = event_frame
-                event_frame = np.zeros((height, width, 1), np.uint8)
                 event_frame[:, :, 0] = 127
                 cv2.waitKey(1)
 
@@ -183,7 +183,7 @@ def find_landmarks_frame(image, video_frame):
     """
         This function finds face's landmarks of the i-frame.
     """
-    image_blurred = cv2.GaussianBlur(image, (5, 5), 0)
+    image_blurred = cv2.GaussianBlur(image, (9, 9), 0)
     mp_drawing = mp.solutions.drawing_utils
     mp_face_mesh = mp.solutions.face_mesh
 
@@ -227,4 +227,4 @@ def find_landmarks_frame(image, video_frame):
 
 
 if __name__ == '__main__':
-    main2()
+    main()

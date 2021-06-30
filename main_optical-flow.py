@@ -187,6 +187,7 @@ def main_optical_flow():
         print(k)
         print(s)
 
+
 def main_optical_flow2():
     with NetworkEventInput(address='127.0.0.1', port=9999) as ev, \
             NetworkFrameInput(address='127.0.0.1', port=8888) as f:
@@ -218,11 +219,11 @@ def main_optical_flow2():
 
             ts = e.timestamp
             if ts1 + delay_old_frame <= ts < ts1 + delay_old_frame + dt:
-                old_event_frame = utility.accumulate(e, old_event_frame)
+                old_event_frame = utility.accumulate_fromNetwork(e, old_event_frame)
                 k += 1
 
             if ts1 + video_dt - advance_new_frame - dt <= ts < ts1 + video_dt - advance_new_frame:
-                new_event_frame = utility.accumulate(e, new_event_frame)
+                new_event_frame = utility.accumulate_fromNetwork(e, new_event_frame)
                 k += 1
 
             # 1 millisecond skip for each frame (100 fps video)
@@ -342,5 +343,5 @@ def calc_landmarks(video_frame):
 
 
 if __name__ == '__main__':
-    main_optical_flow2()
+    main_optical_flow()
     # utility.only_video(amal2)
