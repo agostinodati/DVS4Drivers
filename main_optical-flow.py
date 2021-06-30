@@ -49,85 +49,22 @@ ago1 = "D:/Download/mancini.aedat4"
 ago2 = "D:/Download/mancini_notte.aedat4"
 
 
-def main():
-    with AedatFile(ago2) as f:
-        # list all the names of streams in the file
-        print(f.names)
-
-        # Access dimensions of the event stream
-        height, width = f['events'].size
-
-        normalize = False  # For normalization relative to timestamps
-
-        start = 0
-        k = 0  # Event counter
-        s = 1  # Frame counter
-        time = 8000  # for 100 fps -> 10000 us
-        event_frame = np.zeros((height, width, 1), np.uint8)
-        event_frame[:, :, 0] = 127
-
-        old_event_frame = event_frame
-        video_frame = f['frames'].__next__()
-
-        annotated_image = find_optical_flow(old_event_frame, video_frame.image, video_frame.image)
-
-        for packet in f['events'].numpy():
-            for e in packet:
-
-                if k == start:
-                    ts = e['timestamp']
-
-                if normalize:
-                    norm_factor = (ts + s * time - e['timestamp']) / time
-                else:
-                    norm_factor = 1
-
-                if e['polarity'] == 1:
-                    # event_frame[e['y'], e['x']] = (0, int(255 * norm_factor), 0)
-                    event_frame[e['y'], e['x']] = int(127 * norm_factor) + 127
-                else:
-                    # event_frame[e['y'], e['x']] = (int(255 * norm_factor), 0, 0)
-                    event_frame[e['y'], e['x']] = 127 - int(127 * norm_factor)
-                k += 1
-
-                # 1 millisecond skip for each frame (100 fps video)
-                # All events in this time window are combined into one frame
-                if e['timestamp'] > ts + s * time:
-                    cv2.imshow('Events', event_frame)
-                    cv2.imshow('Video', video_frame.image)
-                    cv2.imshow('Facemesh', annotated_image)
-
-                    while video_frame.timestamp < ts + s * time:
-                        annotated_image = find_optical_flow(old_event_frame, event_frame, video_frame.image)
-                        video_frame = f['frames'].__next__()
-                    s += 1
-
-                    # Frame reset
-                    old_event_frame = event_frame
-                    event_frame = np.zeros((height, width, 1), np.uint8)
-                    event_frame[:, :, 0] = 127
-                    cv2.waitKey(1)
-
-        print(k)
-        print(s)
-
-
 def main_optical_flow():
-    with AedatFile(ago2) as f:
+    with AedatFile(ago1) as f:
         # list all the names of streams in the file
         print(f.names)
 
         # Access dimensions of the event stream
         height, width = f['events'].size
 
-        normalize = False  # For normalization relative to timestamps
+        normalize = True  # For normalization relative to timestamps
         start = 0
         k = 0  # Event counter
         s = 1  # Frame counter
-        dt = 8000  # for 100 fps -> 10000 us
+        dt = 10000  # for 100 fps -> 10000 us
         video_dt = 39980
-        delay_old_frame = 0
-        advance_new_frame = 0
+        delay_old_frame = 20000
+        advance_new_frame = 20000
 
         new_event_frame = np.zeros((height, width, 1), np.uint8)
         new_event_frame[:, :, 0] = 127
@@ -142,11 +79,11 @@ def main_optical_flow():
 
                 ts = e['timestamp']
                 if ts1 + delay_old_frame <= ts < ts1 + delay_old_frame + dt:
-                    old_event_frame = utility.accumulate(e, old_event_frame)
+                    old_event_frame = utility.accumulate(normalize, e, old_event_frame, dt, ts1 + delay_old_frame + dt)
                     k += 1
 
                 if ts1 + video_dt - advance_new_frame - dt <= ts < ts1 + video_dt - advance_new_frame:
-                    new_event_frame = utility.accumulate(e, new_event_frame)
+                    new_event_frame = utility.accumulate(normalize, e, new_event_frame, dt, ts1 + video_dt - advance_new_frame)
                     k += 1
 
                 # 1 millisecond skip for each frame (100 fps video)
@@ -160,12 +97,12 @@ def main_optical_flow():
                         cv2.imshow('New Event', new_event_frame)
 
                         new_landmarks_true = calc_landmarks(video_frame.image)
-                        if random.randint(1, 10) <= 5:
+                        if random.randint(1, 10) <= 9:
                             new_landmarks = None
                         else:
                             new_landmarks = new_landmarks_true
                         facemesh_fail = False
-                        if new_landmarks is None:
+                        if new_landmarks is None and old_landmarks is not None:
                             facemesh_fail = True
                             if facemesh_fail and previous_facemesh_fail:
                                 new_landmarks, st = utility.optical_flow(previous_stored_new_frame, new_event_frame,

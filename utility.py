@@ -69,7 +69,7 @@ def only_video(file):
 
 def optical_flow(old_event_frame, new_event_frame, landmarks):
     mask = np.zeros_like(old_event_frame)
-    lk_params = dict(winSize=(51, 51),
+    lk_params = dict(winSize=(57, 57),
                      maxLevel=2,
                      criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
     # calculate optical flow
@@ -124,18 +124,26 @@ def draw_landmarks_optical_flow(old_landmarks, new_landmarks, st, video_frame, l
     video_frame = cv2.cvtColor(video_frame, cv2.COLOR_GRAY2BGR)
     mask = np.zeros_like(video_frame)
     sum = 0
-    for i, (new, old, true) in enumerate(zip(new_landmarks, old_landmarks, landmarks_true)):
-        a, b = new.ravel()
-        c, d = old.ravel()
-        e, f = true.ravel()
-        # print('{0} - {1}'.format(a-c, b-d))
-        mask = cv2.line(mask, (int(a), int(b)), (int(c), int(d)), (255, 255, 255), 1)
-        frame = cv2.circle(video_frame, (int(a), int(b)), 2, (255, 255, 255), -1)
-        frame = cv2.circle(frame, (int(e), int(f)), 2, (0, 0, 255), -1)
-        sum += math.sqrt(math.pow((a-e), 2) + math.pow((b - f), 2))
-    avg = sum / len(landmarks_true)
+    if landmarks_true is not None:
+        for i, (new, old, true) in enumerate(zip(new_landmarks, old_landmarks, landmarks_true)):
+            a, b = new.ravel()
+            c, d = old.ravel()
+            e, f = true.ravel()
+            # print('{0} - {1}'.format(a-c, b-d))
+            mask = cv2.line(mask, (int(a), int(b)), (int(c), int(d)), (255, 255, 255), 1)
+            frame = cv2.circle(video_frame, (int(a), int(b)), 2, (255, 255, 255), -1)
+            frame = cv2.circle(frame, (int(e), int(f)), 2, (0, 0, 255), -1)
+            sum += math.sqrt(math.pow((a-e), 2) + math.pow((b - f), 2))
+        avg = sum / len(landmarks_true)
+        write_error_img(avg, frame)
 
-    write_error_img(avg, frame)
+    else:
+        for i, (new, old) in enumerate(zip(new_landmarks, old_landmarks)):
+            a, b = new.ravel()
+            c, d = old.ravel()
+            # print('{0} - {1}'.format(a-c, b-d))
+            mask = cv2.line(mask, (int(a), int(b)), (int(c), int(d)), (255, 255, 255), 1)
+            frame = cv2.circle(video_frame, (int(a), int(b)), 2, (255, 255, 255), -1)
 
     img = cv2.add(frame, mask)
     cv2.imshow('Optical flow', img)
@@ -155,14 +163,13 @@ def write_error_img(error, img):
                 fontColor,
                 lineType)
 
-def accumulate(event, frame):
-    '''if normalize:
-        # TODO edit normalization
-        norm_factor = (ts1 + s * dt - e['timestamp']) / dt
-    else:
-        norm_factor = 1'''
 
-    norm_factor = 1
+def accumulate(normalize, event, frame, dt = 1, endTs = 0):
+    if normalize:
+        norm_factor = (endTs - event['timestamp']) / dt
+    else:
+        norm_factor = 1
+
     if event['polarity'] == 1:
         # event_frame[e['y'], e['x']] = (0, int(255 * norm_factor), 0)
         frame[event['y'], event['x']] = int(127 * norm_factor) + 127

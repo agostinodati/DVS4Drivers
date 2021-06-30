@@ -49,7 +49,7 @@ ago2 = "D:/Download/mancini_notte.aedat4"
 
 
 def main():
-    with AedatFile(ago1) as f:
+    with AedatFile(ago2) as f:
         # list all the names of streams in the file
         print(f.names)
 
@@ -120,7 +120,7 @@ def main2():
         height = 260
         width = 346
 
-        normalize = True  # For normalization relative to timestamps
+        normalize = False  # For normalization relative to timestamps
 
         start = 0
         k = 0  # Event counter
@@ -145,7 +145,7 @@ def main2():
                 ts = e.timestamp
 
             if normalize:
-                norm_factor = (ts + s * time - e['timestamp']) / time
+                norm_factor = (ts + s * time - e.timestamp) / time
             else:
                 norm_factor = 1
 
@@ -183,7 +183,8 @@ def find_landmarks_frame(image, video_frame):
     """
         This function finds face's landmarks of the i-frame.
     """
-    image_blurred = cv2.GaussianBlur(image, (9, 9), 0)
+    video_frame = cv2.GaussianBlur(video_frame, (5, 5), 0)
+    image_blurred = cv2.GaussianBlur(image, (5, 5), 0)
     mp_drawing = mp.solutions.drawing_utils
     mp_face_mesh = mp.solutions.face_mesh
 
@@ -227,4 +228,4 @@ def find_landmarks_frame(image, video_frame):
 
 
 if __name__ == '__main__':
-    main()
+    main2()
