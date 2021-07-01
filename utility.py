@@ -74,7 +74,6 @@ def optical_flow(old_event_frame, new_event_frame, landmarks):
                      criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
     # calculate optical flow
     p1, st, err = cv2.calcOpticalFlowPyrLK(old_event_frame, new_event_frame, landmarks, None, **lk_params)
-    cv2.imshow('title', cv2.subtract(old_event_frame, new_event_frame))
     return p1, st
     # Now update the previous frame and previous points
     # old_gray = frame_gray.copy()

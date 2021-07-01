@@ -50,7 +50,7 @@ ago2 = "D:/Download/mancini_notte.aedat4"
 
 
 def main_optical_flow():
-    with AedatFile(ago1) as f:
+    with AedatFile(amal1) as f:
         # list all the names of streams in the file
         print(f.names)
 
@@ -93,11 +93,11 @@ def main_optical_flow():
                         video_frame = f['frames'].__next__()
                         ts1 = video_frame.timestamp
                         cv2.imshow('Video', video_frame.image)
-                        cv2.imshow('Old Event', old_event_frame)
-                        cv2.imshow('New Event', new_event_frame)
+                        cv2.imshow('Old Event Frame', old_event_frame)
+                        cv2.imshow('New Event Frame', new_event_frame)
 
                         new_landmarks_true = calc_landmarks(video_frame.image)
-                        if random.randint(1, 10) <= 9:
+                        if random.randint(1, 10) <= 10:
                             new_landmarks = None
                         else:
                             new_landmarks = new_landmarks_true
@@ -179,7 +179,7 @@ def main_optical_flow2():
                     else:
                         new_landmarks = new_landmarks_true
                     facemesh_fail = False
-                    if new_landmarks is None:
+                    if new_landmarks is None and old_landmarks is not None:
                         facemesh_fail = True
                         if facemesh_fail and previous_facemesh_fail:
                             new_landmarks, st = utility.optical_flow(previous_stored_new_frame, new_event_frame,
