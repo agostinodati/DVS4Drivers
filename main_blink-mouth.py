@@ -49,7 +49,7 @@ ago2 = "D:/Download/mancini_notte.aedat4"
 
 
 def main():
-    with AedatFile(ago2) as f:
+    with AedatFile(amal1) as f:
         # list all the names of streams in the file
         print(f.names)
 
@@ -66,30 +66,35 @@ def main():
         old_event_frame = event_frame
         video_frame = f['frames'].__next__()
         annotated_image = find_landmarks_frame(video_frame.image, video_frame.image)
+        accum_ts = 33000
+        accum_ref_ts = 0
         for packet in f['events'].numpy():
             for e in packet:
 
-                '''if k < start: # Per iniziare da un frame diverso da quello iniziale del video
-                    k += 1
-                    if video_frame['timestamp'] < e['timestamp']:
-                        video_frame = f['frames'].__next__()
-                    continue'''
-
                 if k == start:
                     ts = e['timestamp']
+                    accum_ref_ts = ts
 
                 if normalize:
                     norm_factor = (ts + s * time - e['timestamp']) / time
                 else:
                     norm_factor = 1
-
+                v = 30
                 if e['polarity'] == 1:
                     # event_frame[e['y'], e['x']] = (0, int(255 * norm_factor), 0)
-                    event_frame[e['y'], e['x']] = int(127 * norm_factor) + 127
+                    # event_frame[e['y'], e['x']] = int(127 * norm_factor) + 127
+                    if event_frame[e['y'], e['x']] < 255 - v:
+                        event_frame[e['y'], e['x']] += v
                 else:
                     # event_frame[e['y'], e['x']] = (int(255 * norm_factor), 0, 0)
-                    event_frame[e['y'], e['x']] = 127-int(127 * norm_factor)
+                    # event_frame[e['y'], e['x']] = 127-int(127 * norm_factor)
+                    if event_frame[e['y'], e['x']] > 0 + v:
+                        event_frame[e['y'], e['x']] -= v
                 k += 1
+
+                if e['timestamp'] > accum_ref_ts + accum_ts:
+                    event_frame[event_frame > 1] -= 1
+                    accum_ref_ts = e['timestamp']
 
                 # 1 millisecond skip for each frame (100 fps video)
                 # All events in this time window are combined into one frame
@@ -105,8 +110,7 @@ def main():
 
                     # Frame reset
                     old_event_frame = event_frame
-                    event_frame = np.zeros((height, width, 1), np.uint8)
-                    event_frame[:, :, 0] = 127
+                    # event_frame[:, :, 0] = 127
                     cv2.waitKey(1)
 
         print(k)
@@ -172,7 +176,7 @@ def main2():
 
                 # Frame reset
                 old_event_frame = event_frame
-                event_frame[:, :, 0] = 127
+                # event_frame[:, :, 0] = 127
                 cv2.waitKey(1)
 
         print(k)
@@ -228,4 +232,4 @@ def find_landmarks_frame(image, video_frame):
 
 
 if __name__ == '__main__':
-    main2()
+    main()
