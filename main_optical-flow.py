@@ -1,3 +1,4 @@
+import numpy.distutils.command.build_src
 from dv import NetworkEventInput
 from dv import NetworkFrameInput
 from dv import AedatFile
@@ -51,7 +52,7 @@ ago2 = "D:/Download/mancini_notte.aedat4"
 
 
 def main_optical_flow():
-    with AedatFile(amal3) as f:
+    with AedatFile(ago1) as f:
         # list all the names of streams in the file
         print(f.names)
 
@@ -62,13 +63,17 @@ def main_optical_flow():
         start = 0
         k = 0  # Event counter
         s = 1  # Frame counter
-        dt = 50000  # for 100 fps -> 10000 us
+        dt = 8000  # for 100 fps -> 10000 us
         video_dt = 39980
-        delay_old_frame = 20000
-        advance_new_frame = 20000
-        accum_ts = 10000
+        delay_old_frame = 0
+        advance_new_frame = 0
+        accum_ts = 20000
         accum_ref_ts = 0
-        increment = 50
+        increment = 30
+
+        count_accumulator = 0
+        count_video = 0
+
         new_event_frame = np.zeros((height, width, 1), np.uint8)
         new_event_frame[:, :, 0] = 127
         old_event_frame = new_event_frame.copy()
@@ -102,7 +107,12 @@ def main_optical_flow():
                 if e['timestamp'] > accum_ref_ts + accum_ts:
                     '''old_event_frame[old_event_frame > 1] -= 1
                     new_event_frame[new_event_frame > 1] -= 1'''
-                    accumulator_frame[accumulator_frame > 5] -= 5
+
+                    accumulator_frame = numpy.subtract(accumulator_frame, accumulator_frame/32)
+                    accumulator_frame = accumulator_frame.astype(np.uint8)
+
+                    #accumulator_frame[accumulator_frame > 1] -= 1
+
                     accum_ref_ts = e['timestamp']
 
                 # 1 millisecond skip for each frame (100 fps video)
@@ -113,8 +123,8 @@ def main_optical_flow():
                         ts1 = video_frame.timestamp
                         cv2.imshow('Video', video_frame.image)
                         cv2.imshow('Accumulator', accumulator_frame)
-                        cv2.imshow('Old Event Frame', old_event_frame)
-                        cv2.imshow('New Event Frame', new_event_frame)
+                        # cv2.imshow('Old Event Frame', old_event_frame)
+                        # cv2.imshow('New Event Frame', new_event_frame)
 
                         new_landmarks_true, is_video = find_landmarks_frame(accumulator_frame, video_frame.image)
                         if random.randint(1, 10) <= 7:
@@ -131,8 +141,10 @@ def main_optical_flow():
                                 new_landmarks, st = utility.optical_flow(old_event_frame, new_event_frame,old_landmarks)
                             if is_video:
                                 to_draw = video_frame.image
+                                count_video += 1
                             else:
                                 to_draw = accumulator_frame
+                                count_accumulator += 1
                             utility.draw_landmarks_optical_flow(old_landmarks, new_landmarks, st, to_draw, new_landmarks_true)
                         old_landmarks = new_landmarks
 
@@ -143,7 +155,10 @@ def main_optical_flow():
                     new_event_frame[:, :, 0] = 127
                     old_event_frame[:, :, 0] = 127
                     cv2.waitKey(1)
-
+                    print("Accumulator count: " + str(count_accumulator))
+                    print("Video count: " + str(count_video))
+        print("Accumulator count: " + str(count_accumulator))
+        print("Video count: " + str(count_video))
         print(k)
         print(s)
 
@@ -306,15 +321,16 @@ def find_landmarks_frame(accumulator_frame, video_frame):
     """
         This function finds face's landmarks of the i-frame.
     """
-    video_frame = cv2.GaussianBlur(video_frame, (5, 5), 0)
-    image_blurred = cv2.GaussianBlur(accumulator_frame, (5, 5), 0)
+    #video_frame = cv2.GaussianBlur(video_frame, (5, 5), 0)
+    image_blurred = cv2.GaussianBlur(accumulator_frame, (3, 3), 0)
+    # image_blurred = accumulator_frame
     mp_face_mesh = mp.solutions.face_mesh
 
     height, width = accumulator_frame.shape[:2]
 
     with mp_face_mesh.FaceMesh(
-            min_detection_confidence=0.1,
-            min_tracking_confidence=0.1) as face_mesh:
+            min_detection_confidence=0.001,
+            min_tracking_confidence=0.01) as face_mesh:
 
         # Flip the image horizontally for a later selfie-view display, and convert
         # the BGR image to RGB.
@@ -347,5 +363,6 @@ def find_landmarks_frame(accumulator_frame, video_frame):
 
 
 if __name__ == '__main__':
+    random.seed(3)
     main_optical_flow()
     # utility.only_video(amal2)
