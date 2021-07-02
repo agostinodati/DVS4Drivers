@@ -59,8 +59,22 @@ def main_optical_flow():
         # Access dimensions of the event stream
         height, width = f['events'].size
 
+        video_frame = f['frames'].__next__()
+        fast_forward = video_frame.timestamp + 40 * 1000000
+        flag = False
+        for packet in f['events'].numpy():
+            for e in packet:
+                while video_frame.timestamp <= e['timestamp']:
+                    video_frame = f['frames'].__next__()
+                if e['timestamp'] > fast_forward:
+                    flag = True
+                    break;
+            if flag:
+                break;
+
+
         normalize = False  # For normalization relative to timestamps
-        start = 0
+
         k = 0  # Event counter
         s = 1  # Frame counter
         dt = 8000  # for 100 fps -> 10000 us
