@@ -49,7 +49,7 @@ ago2 = "D:/Download/mancini_notte.aedat4"
 
 
 def main():
-    with AedatFile(amal1) as f:
+    with AedatFile(ago2) as f:
         # list all the names of streams in the file
         print(f.names)
 
@@ -66,7 +66,7 @@ def main():
         old_event_frame = event_frame
         video_frame = f['frames'].__next__()
         annotated_image = find_landmarks_frame(video_frame.image, video_frame.image)
-        accum_ts = 33000
+        accum_ts = 15000
         accum_ref_ts = 0
         for packet in f['events'].numpy():
             for e in packet:
@@ -79,7 +79,7 @@ def main():
                     norm_factor = (ts + s * time - e['timestamp']) / time
                 else:
                     norm_factor = 1
-                v = 30
+                v = 20
                 if e['polarity'] == 1:
                     # event_frame[e['y'], e['x']] = (0, int(255 * norm_factor), 0)
                     # event_frame[e['y'], e['x']] = int(127 * norm_factor) + 127

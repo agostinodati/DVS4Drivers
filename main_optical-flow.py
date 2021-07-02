@@ -50,25 +50,28 @@ ago2 = "D:/Download/mancini_notte.aedat4"
 
 
 def main_optical_flow():
-    with AedatFile(amal1) as f:
+    with AedatFile(ago1) as f:
         # list all the names of streams in the file
         print(f.names)
 
         # Access dimensions of the event stream
         height, width = f['events'].size
 
-        normalize = True  # For normalization relative to timestamps
+        normalize = False  # For normalization relative to timestamps
         start = 0
         k = 0  # Event counter
         s = 1  # Frame counter
-        dt = 10000  # for 100 fps -> 10000 us
+        dt = 50000  # for 100 fps -> 10000 us
         video_dt = 39980
         delay_old_frame = 20000
         advance_new_frame = 20000
-
+        accum_ts = 10000
+        accum_ref_ts = 0
+        increment = 30
         new_event_frame = np.zeros((height, width, 1), np.uint8)
         new_event_frame[:, :, 0] = 127
         old_event_frame = new_event_frame.copy()
+        accumulator_frame = new_event_frame.copy()
         video_frame = f['frames'].__next__()
         annotated_image = new_event_frame
         old_landmarks = calc_landmarks(video_frame.image)
@@ -78,13 +81,32 @@ def main_optical_flow():
             for e in packet:
 
                 ts = e['timestamp']
+
+
+                '''
                 if ts1 + delay_old_frame <= ts < ts1 + delay_old_frame + dt:
-                    old_event_frame = utility.accumulate(normalize, e, old_event_frame, dt, ts1 + delay_old_frame + dt)
+                    #old_event_frame = utility.accumulate(normalize, e, old_event_frame, dt, ts1 + delay_old_frame + dt)
+                    old_event_frame = utility.accumulator(normalize, e, old_event_frame, dt, ts1 + delay_old_frame + dt,
+                                                         increment)
                     k += 1
 
                 if ts1 + video_dt - advance_new_frame - dt <= ts < ts1 + video_dt - advance_new_frame:
-                    new_event_frame = utility.accumulate(normalize, e, new_event_frame, dt, ts1 + video_dt - advance_new_frame)
+                    #new_event_frame = utility.accumulate(normalize, e, new_event_frame, dt, ts1 + video_dt - advance_new_frame)
+                    new_event_frame = utility.accumulator(normalize, e, new_event_frame, dt,
+                                                         ts1 + video_dt - advance_new_frame, increment)
                     k += 1
+                '''
+                accumulator_frame = utility.accumulator(normalize, e, accumulator_frame, dt, ts1 + delay_old_frame + dt,
+                                                      increment)
+                if ts1 + delay_old_frame <= ts:
+                    old_event_frame = accumulator_frame.copy()
+                if ts < ts1 + video_dt - advance_new_frame:
+                    new_event_frame = accumulator_frame.copy()
+
+                if e['timestamp'] > accum_ref_ts + accum_ts:
+                    old_event_frame[old_event_frame > 1] -= 1
+                    new_event_frame[new_event_frame > 1] -= 1
+                    accum_ref_ts = e['timestamp']
 
                 # 1 millisecond skip for each frame (100 fps video)
                 # All events in this time window are combined into one frame
@@ -117,8 +139,8 @@ def main_optical_flow():
                     previous_facemesh_fail = facemesh_fail
                     previous_stored_new_frame = new_event_frame.copy()
                     # Frame reset
-                    new_event_frame[:, :, 0] = 127
-                    old_event_frame[:, :, 0] = 127
+                    #new_event_frame[:, :, 0] = 127
+                    #old_event_frame[:, :, 0] = 127
                     cv2.waitKey(1)
 
         print(k)
