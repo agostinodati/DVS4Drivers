@@ -45,12 +45,13 @@ all_landmarks = left_eye + right_eye + mouth + silhouette
 
 amal1 = "C:/Users/User/Downloads/dvSave-2021_04_23_13_45_03.aedat4"
 amal2 = "D:/Utorrent/dvSave-2021_05_28_18_48_58.aedat4"
+amal3 = "C:/Users/User/Downloads/dvSave-2021_06_28_23_03_03.aedat4"
 ago1 = "D:/Download/mancini.aedat4"
 ago2 = "D:/Download/mancini_notte.aedat4"
 
 
 def main_optical_flow():
-    with AedatFile(ago1) as f:
+    with AedatFile(amal3) as f:
         # list all the names of streams in the file
         print(f.names)
 
@@ -67,14 +68,13 @@ def main_optical_flow():
         advance_new_frame = 20000
         accum_ts = 10000
         accum_ref_ts = 0
-        increment = 30
+        increment = 50
         new_event_frame = np.zeros((height, width, 1), np.uint8)
         new_event_frame[:, :, 0] = 127
         old_event_frame = new_event_frame.copy()
         accumulator_frame = new_event_frame.copy()
         video_frame = f['frames'].__next__()
-        annotated_image = new_event_frame
-        old_landmarks = calc_landmarks(video_frame.image)
+        old_landmarks, is_video = find_landmarks_frame(video_frame.image, video_frame.image)
         ts1 = video_frame.timestamp
         previous_facemesh_fail = False
         for packet in f['events'].numpy():
@@ -82,30 +82,27 @@ def main_optical_flow():
 
                 ts = e['timestamp']
 
-
-                '''
                 if ts1 + delay_old_frame <= ts < ts1 + delay_old_frame + dt:
-                    #old_event_frame = utility.accumulate(normalize, e, old_event_frame, dt, ts1 + delay_old_frame + dt)
-                    old_event_frame = utility.accumulator(normalize, e, old_event_frame, dt, ts1 + delay_old_frame + dt,
-                                                         increment)
+                    old_event_frame = utility.accumulate(normalize, e, old_event_frame, dt, ts1 + delay_old_frame + dt)
+                    # old_event_frame = utility.accumulator(normalize, e, old_event_frame, dt, ts1 + delay_old_frame + dt,increment)
                     k += 1
 
                 if ts1 + video_dt - advance_new_frame - dt <= ts < ts1 + video_dt - advance_new_frame:
-                    #new_event_frame = utility.accumulate(normalize, e, new_event_frame, dt, ts1 + video_dt - advance_new_frame)
-                    new_event_frame = utility.accumulator(normalize, e, new_event_frame, dt,
-                                                         ts1 + video_dt - advance_new_frame, increment)
+                    new_event_frame = utility.accumulate(normalize, e, new_event_frame, dt, ts1 + video_dt - advance_new_frame)
+                    # new_event_frame = utility.accumulator(normalize, e, new_event_frame, dt,ts1 + video_dt - advance_new_frame, increment)
                     k += 1
-                '''
+
                 accumulator_frame = utility.accumulator(normalize, e, accumulator_frame, dt, ts1 + delay_old_frame + dt,
                                                       increment)
-                if ts1 + delay_old_frame <= ts:
+                '''if ts1 + delay_old_frame <= ts:
                     old_event_frame = accumulator_frame.copy()
                 if ts < ts1 + video_dt - advance_new_frame:
-                    new_event_frame = accumulator_frame.copy()
+                    new_event_frame = accumulator_frame.copy()'''
 
                 if e['timestamp'] > accum_ref_ts + accum_ts:
-                    old_event_frame[old_event_frame > 1] -= 1
-                    new_event_frame[new_event_frame > 1] -= 1
+                    '''old_event_frame[old_event_frame > 1] -= 1
+                    new_event_frame[new_event_frame > 1] -= 1'''
+                    accumulator_frame[accumulator_frame > 5] -= 5
                     accum_ref_ts = e['timestamp']
 
                 # 1 millisecond skip for each frame (100 fps video)
@@ -115,11 +112,12 @@ def main_optical_flow():
                         video_frame = f['frames'].__next__()
                         ts1 = video_frame.timestamp
                         cv2.imshow('Video', video_frame.image)
+                        cv2.imshow('Accumulator', accumulator_frame)
                         cv2.imshow('Old Event Frame', old_event_frame)
                         cv2.imshow('New Event Frame', new_event_frame)
 
-                        new_landmarks_true = calc_landmarks(video_frame.image)
-                        if random.randint(1, 10) <= 10:
+                        new_landmarks_true, is_video = find_landmarks_frame(accumulator_frame, video_frame.image)
+                        if random.randint(1, 10) <= 7:
                             new_landmarks = None
                         else:
                             new_landmarks = new_landmarks_true
@@ -130,17 +128,20 @@ def main_optical_flow():
                                 new_landmarks, st = utility.optical_flow(previous_stored_new_frame, new_event_frame,
                                                                          old_landmarks)
                             else:
-                                new_landmarks, st = utility.optical_flow(old_event_frame, new_event_frame,
-                                                                         old_landmarks)
-                            utility.draw_landmarks_optical_flow(old_landmarks, new_landmarks, st, video_frame.image, new_landmarks_true)
+                                new_landmarks, st = utility.optical_flow(old_event_frame, new_event_frame,old_landmarks)
+                            if is_video:
+                                to_draw = video_frame.image
+                            else:
+                                to_draw = accumulator_frame
+                            utility.draw_landmarks_optical_flow(old_landmarks, new_landmarks, st, to_draw, new_landmarks_true)
                         old_landmarks = new_landmarks
 
                     s += 1
                     previous_facemesh_fail = facemesh_fail
                     previous_stored_new_frame = new_event_frame.copy()
                     # Frame reset
-                    #new_event_frame[:, :, 0] = 127
-                    #old_event_frame[:, :, 0] = 127
+                    new_event_frame[:, :, 0] = 127
+                    old_event_frame[:, :, 0] = 127
                     cv2.waitKey(1)
 
         print(k)
@@ -299,6 +300,50 @@ def calc_landmarks(video_frame):
             return features
         else:
             return None
+
+
+def find_landmarks_frame(accumulator_frame, video_frame):
+    """
+        This function finds face's landmarks of the i-frame.
+    """
+    video_frame = cv2.GaussianBlur(video_frame, (5, 5), 0)
+    image_blurred = cv2.GaussianBlur(accumulator_frame, (5, 5), 0)
+    mp_face_mesh = mp.solutions.face_mesh
+
+    height, width = accumulator_frame.shape[:2]
+
+    with mp_face_mesh.FaceMesh(
+            min_detection_confidence=0.1,
+            min_tracking_confidence=0.1) as face_mesh:
+
+        # Flip the image horizontally for a later selfie-view display, and convert
+        # the BGR image to RGB.
+        image_blurred = cv2.cvtColor(image_blurred, cv2.COLOR_BGR2RGB)
+        # To improve performance, optionally mark the image as not writeable to
+        # pass by reference.
+        image_blurred.flags.writeable = False
+        results = face_mesh.process(image_blurred)
+
+        # Draw the face mesh annotations on the image.
+        image_blurred.flags.writeable = True
+        video = False
+        if not results.multi_face_landmarks:
+            video_frame = cv2.cvtColor(video_frame, cv2.COLOR_BGR2RGB)
+            video_frame.flags.writeable = False
+            results = face_mesh.process(video_frame)
+            video = True
+        if results.multi_face_landmarks:
+            for face_landmarks in results.multi_face_landmarks:
+
+                features = np.empty((len(all_landmarks), 2), np.float32)
+                i = 0
+                for index in all_landmarks:
+                    features[i, 0] = face_landmarks.landmark[index].x * width
+                    features[i, 1] = face_landmarks.landmark[index].y * height
+                    i += 1
+            return features, video
+        else:
+            return None, video
 
 
 if __name__ == '__main__':
