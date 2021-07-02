@@ -165,37 +165,36 @@ def write_error_img(error, img):
 
 def accumulate(normalize, event, frame, dt = 1, endTs = 0):
     if normalize:
-        norm_factor = (endTs - event['timestamp']) / dt
+        norm_factor = (endTs - event[0]) / dt
     else:
         norm_factor = 1
 
-    if event['polarity'] == 1:
+    if event[3] == 1:
         # event_frame[e['y'], e['x']] = (0, int(255 * norm_factor), 0)
-        frame[event['y'], event['x']] = int(127 * norm_factor) + 127
+        frame[event[2], event[1]] = int(127 * norm_factor) + 127
     else:
         # event_frame[e['y'], e['x']] = (int(255 * norm_factor), 0, 0)
-        frame[event['y'], event['x']] = 127 - int(127 * norm_factor)
+        frame[event[2], event[1]] = 127 - int(127 * norm_factor)
     return frame
-
 
 
 def accumulator(normalize, event, frame, dt = 1, endTs = 0, increment = 30):
     v = increment
     if normalize:
-        norm_factor = (endTs - event['timestamp']) / dt
+        norm_factor = (endTs - event[0]) / dt
     else:
         norm_factor = 1
 
-    if event['polarity'] == 1:
+    if event[3] == 1:
         # event_frame[e['y'], e['x']] = (0, int(255 * norm_factor), 0)
         # frame[event['y'], event['x']] = int(127 * norm_factor) + 127
-        if frame[event['y'], event['x']] < 255 - v:
-            frame[event['y'], event['x']] += v
+        if frame[event[2], event[1]] < 255 - v:
+            frame[event[2], event[1]] += v
     else:
         # event_frame[e['y'], e['x']] = (int(255 * norm_factor), 0, 0)
         # frame[event['y'], event['x']] = 127 - int(127 * norm_factor)
-        if frame[event['y'], event['x']] > 0 + v:
-            frame[event['y'], event['x']] -= v
+        if frame[event[2], event[1]] > 0 + v:
+            frame[event[2], event[1]] -= v
 
     return frame
 
