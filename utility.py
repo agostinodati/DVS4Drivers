@@ -178,23 +178,17 @@ def accumulate(normalize, event, frame, dt = 1, endTs = 0):
     return frame
 
 
-def accumulator(normalize, event, frame, dt = 1, endTs = 0, increment = 30):
-    v = increment
-    if normalize:
-        norm_factor = (endTs - event[0]) / dt
-    else:
-        norm_factor = 1
-
+def accumulator(event, frame, increment = 30):
     if event[3] == 1:
         # event_frame[e['y'], e['x']] = (0, int(255 * norm_factor), 0)
         # frame[event['y'], event['x']] = int(127 * norm_factor) + 127
-        if frame[event[2], event[1]] < 255 - v:
-            frame[event[2], event[1]] += v
+        if frame[event[2], event[1]] < 255 - increment:
+            frame[event[2], event[1]] += increment
     else:
         # event_frame[e['y'], e['x']] = (int(255 * norm_factor), 0, 0)
         # frame[event['y'], event['x']] = 127 - int(127 * norm_factor)
-        if frame[event[2], event[1]] > 0 + v:
-            frame[event[2], event[1]] -= v
+        if frame[event[2], event[1]] > 0 + increment:
+            frame[event[2], event[1]] -= increment
 
     return frame
 
