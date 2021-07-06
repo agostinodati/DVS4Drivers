@@ -7,6 +7,7 @@ import numpy as np
 import mediapipe as mp
 import utility
 import random
+import matplotlib.pyplot as pl
 
 silhouette = [
     10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288,
@@ -48,10 +49,10 @@ amal2 = "D:/Utorrent/dvSave-2021_05_28_18_48_58.aedat4"
 amal3 = "C:/Users/User/Downloads/dvSave-2021_06_28_23_03_03.aedat4"
 ago1 = "D:/Download/mancini.aedat4"
 ago2 = "D:/Download/mancini_notte.aedat4"
-
+outAgo = "errorlog"
 
 def main_optical_flow():
-    with AedatFile(amal1) as f:
+    with AedatFile(ago1) as f:
         # list all the names of streams in the file
         print(f.names)
 
@@ -59,7 +60,7 @@ def main_optical_flow():
         height, width = f['events'].size
 
         video_frame = f['frames'].__next__()
-        fast_forward = video_frame.timestamp + 10 * 1000000
+        fast_forward = video_frame.timestamp + 0 * 1000000
 
         for packet in f['events'].numpy():
             e = packet[-1]
@@ -82,6 +83,8 @@ def main_optical_flow():
 
         count_accumulator = 0
         count_video = 0
+
+        errorList = []
 
         new_event_frame = np.zeros((height, width, 1), np.uint8)
         new_event_frame[:, :, 0] = 127
@@ -113,10 +116,10 @@ def main_optical_flow():
                     new_event_frame = accumulator_frame.copy()
 
                 if ts > accum_ref_ts + accum_ts:
-                    old_event_frame = numpy.subtract(old_event_frame, old_event_frame/8)
+                    '''old_event_frame = numpy.subtract(old_event_frame, old_event_frame/8)
                     old_event_frame = old_event_frame.astype(np.uint8)
                     new_event_frame = numpy.subtract(new_event_frame, new_event_frame /8)
-                    new_event_frame = new_event_frame.astype(np.uint8)
+                    new_event_frame = new_event_frame.astype(np.uint8)'''
 
                     accumulator_frame = numpy.subtract(accumulator_frame, accumulator_frame/32)
                     # print(accumulator_frame)
@@ -130,14 +133,19 @@ def main_optical_flow():
                 # All events in this time window are combined into one frame
                 if ts >= ts1 + video_dt:
                     while video_frame.timestamp <= ts:
-                        video_frame = f['frames'].__next__()
+                        try:
+                            video_frame = f['frames'].__next__()
+                        except:
+                            break
                         ts1 = video_frame.timestamp
+
+                        # Commenta la riga seguente per tornare all'"originale"
+                        old_event_frame, new_event_frame = utility.face_roi(old_landmarks, old_event_frame,
+                                                                            new_event_frame)
                         cv2.imshow('Video', video_frame.image)
                         cv2.imshow('Accumulator', accumulator_frame)
                         cv2.imshow('Old Event Frame', old_event_frame)
                         cv2.imshow('New Event Frame', new_event_frame)
-                        # cv2.imshow('Old Event Frame', old_event_frame)
-                        # cv2.imshow('New Event Frame', new_event_frame)
 
                         new_landmarks_true, is_video = find_landmarks_frame(accumulator_frame, video_frame.image)
                         '''if random.randint(1, 10) <= 9:
@@ -163,7 +171,10 @@ def main_optical_flow():
                             else:
                                 to_draw = accumulator_frame
                                 count_accumulator += 1
-                            utility.draw_landmarks_optical_flow(old_landmarks, new_landmarks, st, to_draw, new_landmarks_true)
+
+                            error = utility.draw_landmarks_optical_flow(old_landmarks, new_landmarks, st, to_draw, new_landmarks_true)
+                            if error is not None:
+                                errorList.append(error)
                         old_landmarks = new_landmarks
 
                     s += 1
@@ -175,6 +186,13 @@ def main_optical_flow():
                     cv2.waitKey(1)
                     print("Accumulator count: " + str(count_accumulator))
                     print("Video count: " + str(count_video))
+        errorNp = np.asarray(errorList)
+        avgError = np.average(errorNp)
+        np.save(outAgo, errorNp, allow_pickle=False)
+        pl.plot(errorNp)
+        pl.axhline(y=avgError, color='r')
+        pl.savefig('errorplot-DT_' + str(dt) + '-INCREMENT_' + str(increment) + '-ACCUMTS_' + str(accum_ts))
+        pl.show()
         print(k)
         print(s)
 
@@ -226,7 +244,6 @@ def main_optical_flow2():
                     cv2.imshow('Video', video_frame.image)
                     cv2.imshow('Old Event', old_event_frame)
                     cv2.imshow('New Event', new_event_frame)
-
                     new_landmarks_true = calc_landmarks(video_frame.image)
                     if random.randint(1, 10) <= 5:
                         new_landmarks = None
@@ -242,6 +259,7 @@ def main_optical_flow2():
                             new_landmarks, st = utility.optical_flow(old_event_frame, new_event_frame,
                                                                      old_landmarks)
                         utility.draw_landmarks_optical_flow(old_landmarks, new_landmarks, st, video_frame.image, new_landmarks_true)
+
                     old_landmarks = new_landmarks
 
                 s += 1

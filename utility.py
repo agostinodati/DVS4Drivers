@@ -104,6 +104,57 @@ def draw_landmarks(width, height, image, landmarks, indexes, source, title):
     return image
 
 
+def face_roi(landmarks, frame1, frame2, offset=30):
+    height, width = frame1.shape[:2]
+    if landmarks is not None:
+        minx = width
+        miny = height
+        maxy = 0
+        maxx = 0
+        for landmark in landmarks:
+            x = int(landmark[0])
+            y = int(landmark[1])
+            if x < minx:
+                minx = x
+            if y < miny:
+                miny = y
+            if x > maxx:
+                maxx = x
+            if y > maxy:
+                maxy = y
+
+        if minx-offset > 0:
+            minx -= offset
+        else:
+            minx = 0
+
+        if miny-offset > 0:
+            miny -= offset
+        else:
+            miny = 0
+
+        if maxx + offset < width:
+            maxx += offset
+        else:
+            maxx = width
+
+        if maxy + offset < height:
+            maxy += height
+        else:
+            maxy = height
+
+        w = maxx - minx
+        h = maxy - miny
+        if w > 0 and h > 0:
+            black_frame1 = np.zeros((height, width, 1), np.uint8)
+            black_frame2 = black_frame1.copy()
+            black_frame1[miny:maxy, minx:maxx] = frame1[miny:maxy, minx:maxx]
+            black_frame2[miny:maxy, minx:maxx] = frame1[miny:maxy, minx:maxx]
+            # cv2.imshow('Face detection', black_frame1)
+            return black_frame1, black_frame2
+    return frame1, frame2
+
+
 def draw_landmarks_optical_flow(old_landmarks, new_landmarks, st, video_frame, landmarks_true):
     '''    # Select good points
     if new_landmarks is not None:
@@ -119,6 +170,7 @@ def draw_landmarks_optical_flow(old_landmarks, new_landmarks, st, video_frame, l
                 k += 1
             i += 1
     '''
+    avg = None
     # draw the tracks
     video_frame = cv2.cvtColor(video_frame, cv2.COLOR_GRAY2BGR)
     mask = np.zeros_like(video_frame)
@@ -135,7 +187,6 @@ def draw_landmarks_optical_flow(old_landmarks, new_landmarks, st, video_frame, l
             sum += math.sqrt(math.pow((a-e), 2) + math.pow((b - f), 2))
         avg = sum / len(landmarks_true)
         write_error_img(avg, frame)
-
     else:
         for i, (new, old) in enumerate(zip(new_landmarks, old_landmarks)):
             a, b = new.ravel()
@@ -146,6 +197,7 @@ def draw_landmarks_optical_flow(old_landmarks, new_landmarks, st, video_frame, l
 
     img = cv2.add(frame, mask)
     cv2.imshow('Optical flow', img)
+    return avg
 
 
 def write_error_img(error, img):
