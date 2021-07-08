@@ -9,9 +9,9 @@ from landmark_indexes import all_landmarks
 
 def view_aedat_videoframes(file):
     '''
+    Show the video frames of the Aedat file.
 
-    :param file:
-    :return:
+    :param file: Path of the aedat file
     '''
     old_ts = 0
     with AedatFile(file) as f:
@@ -20,19 +20,23 @@ def view_aedat_videoframes(file):
         for frame in f['frames']:
             cv2.imshow('Video frames', frame.image)
             cv2.waitKey(1)
-            print(frame.timestamp-old_ts)
+            print(frame.timestamp - old_ts)
             old_ts = frame.timestamp
             i += 1
         print(i)
 
 
-def find_landmarks(video_frame, event_frame, blur=False, inverse_order=False):
-    """
-        This function finds face's landmarks of the i-frame.
-    """
+def find_landmarks(video_frame, event_frame, blur=True, inverse_order=False):
+    '''
+    Calculate the landmarks of the face.
+    First try on the event frame (if inverse_order is True).
+    :param video_frame: Video frame
+    :param event_frame: Event frame
+    :param blur: If True, blur the event frame for a better interpretation
+    :param inverse_order: If True, make the first try on the event frame
+    :return: Landmarks and a flag (is_video)
+    '''
 
-    if blur:
-        video_frame = cv2.GaussianBlur(video_frame, (3, 3), 0)
     if blur and event_frame is not None:
         event_frame = cv2.GaussianBlur(event_frame, (3, 3), 0)
 
@@ -124,7 +128,7 @@ def optical_flow(old_event_frame, new_event_frame, landmarks, winSize=57):
     return p1
 
 
-def draw_landmarks_optical_flow(old_landmarks, new_landmarks,video_frame, landmarks_true):
+def draw_landmarks_optical_flow(old_landmarks, new_landmarks, video_frame, landmarks_true):
     avg = None
     # draw the tracks
     video_frame = cv2.cvtColor(video_frame, cv2.COLOR_GRAY2BGR)
@@ -138,7 +142,7 @@ def draw_landmarks_optical_flow(old_landmarks, new_landmarks,video_frame, landma
             mask = cv2.line(mask, (int(a), int(b)), (int(c), int(d)), (255, 255, 255), 1)
             frame = cv2.circle(video_frame, (int(a), int(b)), 2, (255, 255, 255), -1)
             frame = cv2.circle(frame, (int(e), int(f)), 2, (0, 0, 255), -1)
-            error_sum += math.sqrt(math.pow((a-e), 2) + math.pow((b - f), 2))
+            error_sum += math.sqrt(math.pow((a - e), 2) + math.pow((b - f), 2))
         avg = error_sum / len(landmarks_true)
         write_error_img(avg, frame)
     else:
@@ -166,3 +170,78 @@ def write_error_img(error, img):
                 fontScale,
                 fontColor,
                 lineType)
+
+
+def face_roi(landmarks, frame1, frame2, offset=30):
+    height, width = frame1.shape[:2]
+    if landmarks is not None:
+        minx = width
+        miny = height
+        maxy = 0
+        maxx = 0
+        for landmark in landmarks:
+            x = int(landmark[0])
+            y = int(landmark[1])
+            if x < minx:
+                minx = x
+            if y < miny:
+                miny = y
+            if x > maxx:
+                maxx = x
+            if y > maxy:
+                maxy = y
+
+        if minx - offset > 0:
+            minx -= offset
+        else:
+            minx = 0
+
+        if miny - offset > 0:
+            miny -= offset
+        else:
+            miny = 0
+
+        if maxx + offset < width:
+            maxx += offset
+        else:
+            maxx = width
+
+        if maxy + offset < height:
+            maxy += height
+        else:
+            maxy = height
+
+        w = maxx - minx
+        h = maxy - miny
+        if w > 0 and h > 0:
+            black_frame1 = np.zeros((height, width, 1), np.uint8)
+            black_frame2 = black_frame1.copy()
+            black_frame1[miny:maxy, minx:maxx] = frame1[miny:maxy, minx:maxx]
+            black_frame2[miny:maxy, minx:maxx] = frame1[miny:maxy, minx:maxx]
+            return black_frame1, black_frame2
+    return frame1, frame2
+
+
+def naive_event_drawer(normalize, event, frame, dt=1, endTs=0):
+    if normalize:
+        norm_factor = (endTs - event[0]) / dt
+    else:
+        norm_factor = 1
+
+    if event[3] == 1:
+        # event_frame[e['y'], e['x']] = (0, int(255 * norm_factor), 0)
+        frame[event[2], event[1]] = int(127 * norm_factor) + 127
+    else:
+        # event_frame[e['y'], e['x']] = (int(255 * norm_factor), 0, 0)
+        frame[event[2], event[1]] = 127 - int(127 * norm_factor)
+    return frame
+
+
+def accumulator(event, frame, increment=30):
+    if event[3] == 1:
+        if frame[event[2], event[1]] < 255 - increment:
+            frame[event[2], event[1]] += increment
+    else:
+        if frame[event[2], event[1]] > 0 + increment:
+            frame[event[2], event[1]] -= increment
+    return frame
