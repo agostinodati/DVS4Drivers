@@ -76,12 +76,12 @@ def main_optical_flow_naive(timeskip=0):
                 # If the timestamp "ts" is in this allowed temporal window, draw the old event frame
                 if prev_videoframe_ts + delay_old_frame <= ts < prev_videoframe_ts + delay_old_frame + event_dt:
                     old_event_frame = dvs4d_lib.naive_event_drawer(normalize, e, old_event_frame, event_dt,
-                                                                 prev_videoframe_ts + delay_old_frame + event_dt)
+                                                                   prev_videoframe_ts + delay_old_frame + event_dt)
 
                 # If the timestamp "ts" is in this allowed temporal window, draw the new event frame
                 if prev_videoframe_ts + video_dt - advance_new_frame - event_dt <= ts < prev_videoframe_ts + video_dt - advance_new_frame:
                     new_event_frame = dvs4d_lib.naive_event_drawer(normalize, e, new_event_frame, event_dt,
-                                                                 prev_videoframe_ts + video_dt - advance_new_frame)
+                                                                   prev_videoframe_ts + video_dt - advance_new_frame)
 
                 # Draw the accumulator frame and eventually decrement the intensity values
                 accumulator_frame = dvs4d_lib.accumulator(e, accumulator_frame, accum_increment)
@@ -307,5 +307,90 @@ def main_optical_flow_accumulator(timeskip=0):
         pl.show()
 
 
+def main_blink_mouth(timeskip=0):
+    '''
+
+    Detect mouth opening and blinking.
+    '''
+    with AedatFile(amal3) as f:
+
+        # Access dimensions of the event stream
+        height, width = f['events'].size
+
+        # Time-skip for the aedat file ---
+        video_frame = f['frames'].__next__()
+        fast_forward = video_frame.timestamp + timeskip * 1000000
+
+        for packet in f['events'].numpy():
+            e = packet[-1]
+            while video_frame.timestamp <= e['timestamp']:
+                video_frame = f['frames'].__next__()
+            if e['timestamp'] > fast_forward:
+                break;
+        # ---
+
+        normalize = False  # For normalization relative to timestamps
+
+        event_dt = 30000  # Temporal window (micro-seconds) for event frames (for 100 fps -> 10000 us)
+        attenuation_factor = 128  # Factor used in the decrement of events drawn (accumulator)
+        accum_dt = 30000  # Temporal window before starting decrement the accumulator frame
+        accum_ref_ts = 0  # Timestamp of the previous accumulator frame
+        accum_increment = 10  # The increment of intensity of the accumulator when an event occurs
+
+        event_frame = np.zeros((height, width, 1), np.uint8)  # The naive event frame
+        accumulator_frame = event_frame.copy()
+        event_frame[:, :, 0] = 127  # Initialize to gray the image
+
+        # Access to a video frame to initialize the needed parameters:
+        # - old_landmarks: landmarks calculated using facemesh on the videoframe
+        video_frame = f['frames'].__next__()
+        prev_videoframe_ts = video_frame.timestamp
+
+        s = 1
+        k = 1
+        first_ts = 0
+        # Iterate through the events of the Aedat file
+        left_eye = None
+        right_eye = None
+        mouth = None
+        for packet in f['events'].numpy():
+            for e in packet.tolist():
+                ts = e[0]  # Event's timestamp
+                if k == 1:
+                    first_ts = ts
+
+                event_frame = dvs4d_lib.naive_event_drawer(normalize, e, event_frame, event_dt,
+                                                               first_ts + s*event_dt)
+
+                # Draw the accumulator frame and eventually decrement the intensity values
+                accumulator_frame = dvs4d_lib.accumulator(e, accumulator_frame, accum_increment)
+                if ts > accum_ref_ts + accum_dt:
+                    accumulator_frame = numpy.subtract(accumulator_frame, accumulator_frame / attenuation_factor)
+                    accumulator_frame = accumulator_frame.astype(np.uint8)
+                    accum_ref_ts = ts
+
+                # Synchronize event ad video frames
+                if ts >= first_ts + s * event_dt:
+                    while video_frame.timestamp <= ts:
+                        try:
+                            video_frame = f['frames'].__next__()
+                        except:
+                            break
+                        # Calculate new landmarks
+                    left_eye, right_eye, mouth = dvs4d_lib.extract_eye_mouth_rois(accumulator_frame)
+
+                    if mouth is not None:
+                        roi = event_frame[mouth[2]:mouth[3], mouth[0]:mouth[1]]
+                        cv2.imshow('Mouth', roi)
+                        dvs4d_lib.detect_mouth_opening(roi, event_frame, 0.2)
+                    # Frame reset for events draw
+                    cv2.imshow('Video', accumulator_frame)
+                    cv2.imshow('Event Frame', event_frame)
+                    cv2.waitKey(1)
+                    event_frame[:, :, 0] = 127
+                    s += 1
+                k += 1
+
+
 if __name__ == '__main__':
-    main_optical_flow_accumulator()
+    main_blink_mouth(0)

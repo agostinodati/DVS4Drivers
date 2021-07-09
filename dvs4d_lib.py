@@ -3,7 +3,7 @@ from dv import AedatFile
 import numpy as np
 import math
 import mediapipe as mp
-from landmark_indexes import all_landmarks
+from landmark_indexes import all_landmarks, left_eye, right_eye, mouth
 
 
 def view_aedat_videoframes(file):
@@ -287,7 +287,85 @@ def accumulator(event, frame, increment=30):
     if event[3] == 1:
         if frame[event[2], event[1]] < 255 - increment:
             frame[event[2], event[1]] += increment
+        else:
+            frame[event[2], event[1]] = 255
     else:
         if frame[event[2], event[1]] > 0 + increment:
             frame[event[2], event[1]] -= increment
+        else:
+            frame[event[2], event[1]] = 0
     return frame
+
+
+def extract_eye_mouth_rois(frame):
+    """
+        This function finds face's landmarks of the i-frame.
+    """
+
+    mp_drawing = mp.solutions.drawing_utils
+    mp_face_mesh = mp.solutions.face_mesh
+
+    height, width = frame.shape[:2]
+
+    with mp_face_mesh.FaceMesh(
+            min_detection_confidence=0.1,
+            min_tracking_confidence=0.1) as face_mesh:
+
+        # Flip the image horizontally for a later selfie-view display, and convert
+        # the BGR image to RGB.
+        image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        # To improve performance, optionally mark the image as not writeable to
+        # pass by reference.
+        image.flags.writeable = False
+        results = face_mesh.process(image)
+
+        # Draw the face mesh annotations on the image.
+        image.flags.writeable = True
+
+        if results.multi_face_landmarks:
+            for face_landmarks in results.multi_face_landmarks:
+                left_eye_roi = extract_roi_coord(width, height, face_landmarks.landmark, left_eye)
+                right_eye_roi = extract_roi_coord(width, height, face_landmarks.landmark, right_eye)
+                mouth_roi = extract_roi_coord(width, height, face_landmarks.landmark, mouth)
+            return left_eye_roi, right_eye_roi, mouth_roi
+        else:
+            return None, None, None
+
+
+def extract_roi_coord(width, height, landmarks, indexes):
+    minx = width
+    miny = height
+    maxy = 0
+    maxx = 0
+    for index in indexes:
+        x = int(landmarks[index].x * width)
+        y = int(landmarks[index].y * height)
+        if x < minx:
+            minx = x
+        if y < miny:
+            miny = y
+        if x > maxx:
+            maxx = x
+        if y > maxy:
+            maxy = y
+    w = maxx - minx
+    h = maxy - miny
+    return minx, maxx, miny, maxy
+
+
+def detect_mouth_opening(mouth_roi, image, treshold=0.4):
+    height, width = mouth_roi.shape[:2]
+    ratio = height/width
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    bottomLeftCornerOfText = (10, 240)
+    fontScale = 0.5
+    fontColor = (0, 255, 0)
+    lineType = 2
+    if ratio > treshold:
+        cv2.putText(image, 'Mouth Open',
+                    bottomLeftCornerOfText,
+                    font,
+                    fontScale,
+                    fontColor,
+                    lineType)
+
