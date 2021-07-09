@@ -1,5 +1,4 @@
 import cv2
-import os
 from dv import AedatFile
 import numpy as np
 import math
@@ -10,7 +9,6 @@ from landmark_indexes import all_landmarks
 def view_aedat_videoframes(file):
     '''
     Show the video frames of the Aedat file.
-
     :param file: Path of the aedat file
     '''
     old_ts = 0
@@ -82,9 +80,12 @@ def find_landmarks(video_frame, event_frame, blur=True, inverse_order=False):
 
 
 def find_landmarks_only_video(video_frame, blur=False):
-    """
-        This function finds face's landmarks of the i-frame.
-    """
+    '''
+    Calculate the landmarks of the face from the video frame.
+    :param video_frame: Video frame
+    :param blur: If True, blur the event frame for a better interpretation
+    :return: Landmarks and a flag (is_video)
+    '''
 
     if blur:
         video_frame = cv2.GaussianBlur(video_frame, (3, 3), 0)
@@ -119,6 +120,14 @@ def find_landmarks_only_video(video_frame, blur=False):
 
 
 def optical_flow(old_event_frame, new_event_frame, landmarks, winSize=57):
+    '''
+    Calculate the optical flow to make an estimate of the movement of the landmarks
+    :param old_event_frame: Previous event frame
+    :param new_event_frame: Next event frame
+    :param landmarks: Landmarks of the face calculated using facemesh
+    :param winSize: Size of the window used by OpenCv
+    :return: Estimated position of landmarks
+    '''
     mask = np.zeros_like(old_event_frame)
     lk_params = dict(winSize=(winSize, winSize),
                      maxLevel=2,
@@ -129,6 +138,14 @@ def optical_flow(old_event_frame, new_event_frame, landmarks, winSize=57):
 
 
 def draw_landmarks_optical_flow(old_landmarks, new_landmarks, video_frame, landmarks_true):
+    '''
+    Draw the estimated landmarks of the optical flow and calculate the error of the estimation.
+    :param old_landmarks: Landmarks of the previous frame
+    :param new_landmarks: Landmarks of the next frame
+    :param video_frame: Video frame
+    :param landmarks_true: Landmarks of the next frame calculated on the video frame.
+    :return: Average error (euclidean distance between estimated landmarks and true landmarks calculate using facemesh on video frame)
+    '''
     avg = None
     # draw the tracks
     video_frame = cv2.cvtColor(video_frame, cv2.COLOR_GRAY2BGR)
@@ -142,7 +159,7 @@ def draw_landmarks_optical_flow(old_landmarks, new_landmarks, video_frame, landm
             mask = cv2.line(mask, (int(a), int(b)), (int(c), int(d)), (255, 255, 255), 1)
             frame = cv2.circle(video_frame, (int(a), int(b)), 2, (255, 255, 255), -1)
             frame = cv2.circle(frame, (int(e), int(f)), 2, (0, 0, 255), -1)
-            error_sum += math.sqrt(math.pow((a - e), 2) + math.pow((b - f), 2))
+            error_sum += math.sqrt(math.pow((a - e), 2) + math.pow((b - f), 2))  # Euclidean distance
         avg = error_sum / len(landmarks_true)
         write_error_img(avg, frame)
     else:
@@ -158,6 +175,11 @@ def draw_landmarks_optical_flow(old_landmarks, new_landmarks, video_frame, landm
 
 
 def write_error_img(error, img):
+    '''
+    Write the error on the image.
+    :param error: Float
+    :param img: Image
+    '''
     font = cv2.FONT_HERSHEY_SIMPLEX
     bottomLeftCornerOfText = (10, 240)
     fontScale = 0.5
@@ -173,6 +195,14 @@ def write_error_img(error, img):
 
 
 def face_roi(landmarks, frame1, frame2, offset=30):
+    '''
+    Exatract the ROI of the face using the landmarks, calculated using facemesh.
+    :param landmarks: Facemesh's landmarks
+    :param frame1: Previous image
+    :param frame2: Next image
+    :param offset: ROI's offeset
+    :return: ROIs of Previous and Next images
+    '''
     height, width = frame1.shape[:2]
     if landmarks is not None:
         minx = width
@@ -223,6 +253,15 @@ def face_roi(landmarks, frame1, frame2, offset=30):
 
 
 def naive_event_drawer(normalize, event, frame, dt=1, endTs=0):
+    '''
+    Draw the events in a simple way.
+    :param normalize: A flag used for the normalization
+    :param event: Current event
+    :param frame: Frame where the event will be draw
+    :param dt: Temporal window
+    :param endTs:
+    :return: Frame with the event drawn
+    '''
     if normalize:
         norm_factor = (endTs - event[0]) / dt
     else:
@@ -238,6 +277,13 @@ def naive_event_drawer(normalize, event, frame, dt=1, endTs=0):
 
 
 def accumulator(event, frame, increment=30):
+    '''
+    Draw the accumulator of the events. It generates a sophisticate representation of the events
+    :param event: Current event
+    :param frame: Frame where the event will be draw
+    :param increment: Increment of intensity
+    :return: The accumulator frame
+    '''
     if event[3] == 1:
         if frame[event[2], event[1]] < 255 - increment:
             frame[event[2], event[1]] += increment

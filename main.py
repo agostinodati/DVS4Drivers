@@ -2,7 +2,6 @@ import numpy.distutils.command.build_src
 from dv import AedatFile
 import cv2
 import numpy as np
-import utility
 import matplotlib.pyplot as pl
 import dvs4d_lib
 
@@ -196,7 +195,7 @@ def main_optical_flow_accumulator(timeskip=0):
         accum_ref_ts = 0  # Timestamp of the previous accumulator frame
         accum_increment = 30  # The increment of intensity of the accumulator when an event occurs
 
-        isolate_face_roi = False  # Check variable to isolate (or not) the ROI of the face
+        isolate_face_roi = True  # Check variable to isolate (or not) the ROI of the face
 
         missing_frames_amt = 10  # Amount of frame to skip to simulate a test case
 
@@ -224,7 +223,7 @@ def main_optical_flow_accumulator(timeskip=0):
                 ts = e[0]  # Event's timestamp
 
                 # Make a copy of the accumulator frame at different time
-                accumulator_frame = utility.accumulator(e, accumulator_frame, accum_increment)
+                accumulator_frame = dvs4d_lib.accumulator(e, accumulator_frame, accum_increment)
                 if prev_videoframe_ts + delay_old_frame <= ts:
                     old_event_frame = accumulator_frame.copy()
                 if ts < prev_videoframe_ts + video_dt - advance_new_frame:
