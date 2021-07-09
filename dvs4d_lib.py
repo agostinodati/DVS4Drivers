@@ -353,6 +353,45 @@ def extract_roi_coord(width, height, landmarks, indexes):
     return minx, maxx, miny, maxy
 
 
+def detect_blink(eye_event_frame, image, threshold_low, threshold_up):
+    height, width = eye_event_frame.shape[:2]
+    h1 = int(height/2)
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    bottomLeftCornerOfText = (30, 240)
+    fontScale = 0.5
+    fontColor = (0, 255, 0)
+    lineType = 2
+    upper_roi = eye_event_frame[0:h1, 0:width]
+    lower_roi = eye_event_frame[h1:height, 0:width]
+    avg_upper_roi = np.mean(upper_roi)
+    avg_lower_roi = np.mean(lower_roi)
+
+    ratio = avg_upper_roi/avg_lower_roi
+
+    low_eye = cv2.resize(lower_roi, (width * 5, h1 * 5))
+    up_eye = cv2.resize(upper_roi, (width * 5, h1 * 5))
+    print('Average lower values: ' + str(avg_lower_roi))
+    print('Average upper values: ' + str(avg_upper_roi))
+    print('Ratio: ' + str(ratio))
+    cv2.imshow('Lower eye', low_eye)
+    cv2.imshow('Upper eye', up_eye)
+    if ratio >= threshold_up:
+        cv2.putText(image, 'Blink down',
+                    bottomLeftCornerOfText,
+                    font,
+                    fontScale,
+                    fontColor,
+                    lineType)
+    elif ratio <= threshold_low:
+        cv2.putText(image, 'Blink up',
+                    bottomLeftCornerOfText,
+                    font,
+                    fontScale,
+                    fontColor,
+                    lineType)
+
+
+
 def detect_mouth_opening(mouth_roi, image, treshold=0.4):
     height, width = mouth_roi.shape[:2]
     ratio = height/width

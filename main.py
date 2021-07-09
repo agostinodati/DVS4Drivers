@@ -18,7 +18,7 @@ def main_optical_flow_naive(timeskip=0):
 
     Calculate the optical flow using a naive event visualizer method.
     '''
-    with AedatFile(ago1) as f:
+    with AedatFile(ago2) as f:
 
         # Access dimensions of the event stream
         height, width = f['events'].size
@@ -168,7 +168,7 @@ def main_optical_flow_accumulator(timeskip=0):
 
     Calculate the optical flow using an accumulator of events.
     '''
-    with AedatFile(ago1) as f:
+    with AedatFile(ago2) as f:
 
         # Access dimensions of the event stream
         height, width = f['events'].size
@@ -312,7 +312,7 @@ def main_blink_mouth(timeskip=0):
 
     Detect mouth opening and blinking.
     '''
-    with AedatFile(amal3) as f:
+    with AedatFile(ago1) as f:
 
         # Access dimensions of the event stream
         height, width = f['events'].size
@@ -332,10 +332,10 @@ def main_blink_mouth(timeskip=0):
         normalize = False  # For normalization relative to timestamps
 
         event_dt = 30000  # Temporal window (micro-seconds) for event frames (for 100 fps -> 10000 us)
-        attenuation_factor = 128  # Factor used in the decrement of events drawn (accumulator)
+        attenuation_factor = 16  # Factor used in the decrement of events drawn (accumulator)
         accum_dt = 30000  # Temporal window before starting decrement the accumulator frame
         accum_ref_ts = 0  # Timestamp of the previous accumulator frame
-        accum_increment = 10  # The increment of intensity of the accumulator when an event occurs
+        accum_increment = 16  # The increment of intensity of the accumulator when an event occurs
 
         event_frame = np.zeros((height, width, 1), np.uint8)  # The naive event frame
         accumulator_frame = event_frame.copy()
@@ -377,14 +377,18 @@ def main_blink_mouth(timeskip=0):
                         except:
                             break
                         # Calculate new landmarks
-                    left_eye, right_eye, mouth = dvs4d_lib.extract_eye_mouth_rois(accumulator_frame)
+                    left_eye, right_eye, mouth = dvs4d_lib.extract_eye_mouth_rois(video_frame.image)
 
                     if mouth is not None:
                         roi = event_frame[mouth[2]:mouth[3], mouth[0]:mouth[1]]
                         cv2.imshow('Mouth', roi)
                         dvs4d_lib.detect_mouth_opening(roi, event_frame, 0.2)
+                    if left_eye is not None:
+                        roi = event_frame[left_eye[2]:left_eye[3], left_eye[0]:left_eye[1]]
+                        cv2.imshow('Left Eye', roi)
+                        dvs4d_lib.detect_blink(roi, event_frame, 0.8, 1.2)
                     # Frame reset for events draw
-                    cv2.imshow('Video', accumulator_frame)
+                    cv2.imshow('Video', video_frame.image)
                     cv2.imshow('Event Frame', event_frame)
                     cv2.waitKey(1)
                     event_frame[:, :, 0] = 127
@@ -393,4 +397,5 @@ def main_blink_mouth(timeskip=0):
 
 
 if __name__ == '__main__':
-    main_blink_mouth(0)
+    main_blink_mouth(24)
+    #main_optical_flow_accumulator(0)
