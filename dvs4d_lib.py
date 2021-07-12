@@ -4,6 +4,7 @@ import numpy as np
 import math
 import mediapipe as mp
 from landmark_indexes import all_landmarks, left_eye, right_eye, mouth
+import math
 
 
 def view_aedat_videoframes(file):
@@ -134,6 +135,23 @@ def optical_flow(old_event_frame, new_event_frame, landmarks, winSize=57):
                      criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
     # calculate optical flow
     p1, st, err = cv2.calcOpticalFlowPyrLK(old_event_frame, new_event_frame, landmarks, None, **lk_params)
+    return p1
+
+
+def optical_flow_farneback(old_event_frame, new_event_frame, landmarks, winSize=21):
+    '''
+    Calculate the optical flow to make an estimate of the movement of the landmarks
+    :param old_event_frame: Previous event frame
+    :param new_event_frame: Next event frame
+    :param landmarks: Landmarks of the face calculated using facemesh
+    :param winSize: Size of the window used by OpenCv
+    :return: Estimated position of landmarks
+    '''
+    flow = cv2.calcOpticalFlowFarneback(old_event_frame, new_event_frame, None, 0.5, 3, winSize, 3, 7, 1.5, 0)
+    p1 = landmarks.copy()
+    for i in range(landmarks.shape[0]):
+        p1[i][0] += flow[round(landmarks[i][1]), round(landmarks[i][0])][0]
+        p1[i][1] += flow[round(landmarks[i][1]), round(landmarks[i][0])][1]
     return p1
 
 

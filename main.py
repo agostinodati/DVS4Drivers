@@ -168,7 +168,7 @@ def main_optical_flow_accumulator(timeskip=0):
 
     Calculate the optical flow using an accumulator of events.
     '''
-    with AedatFile(ago2) as f:
+    with AedatFile(amal1) as f:
 
         # Access dimensions of the event stream
         height, width = f['events'].size
@@ -270,10 +270,10 @@ def main_optical_flow_accumulator(timeskip=0):
                         if new_landmarks is None and old_landmarks is not None:
                             facemesh_fail = True
                             if facemesh_fail and prev_facemesh_fail:
-                                new_landmarks = dvs4d_lib.optical_flow(prev_stored_new_frame, new_event_frame,
+                                new_landmarks = dvs4d_lib.optical_flow_farneback(prev_stored_new_frame, new_event_frame,
                                                                        old_landmarks)
                             else:
-                                new_landmarks = dvs4d_lib.optical_flow(old_event_frame, new_event_frame,
+                                new_landmarks = dvs4d_lib.optical_flow_farneback(old_event_frame, new_event_frame,
                                                                        old_landmarks)
                             if is_video:
                                 to_draw = video_frame.image
@@ -397,5 +397,5 @@ def main_blink_mouth(timeskip=0):
 
 
 if __name__ == '__main__':
-    main_blink_mouth(24)
-    #main_optical_flow_accumulator(0)
+    # main_blink_mouth(24)
+    main_optical_flow_accumulator(0)
