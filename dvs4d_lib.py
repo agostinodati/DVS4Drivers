@@ -298,10 +298,11 @@ def accumulator(event, frame, increment=30):
 
 
 def extract_eye_mouth_rois(frame):
-    """
-        This function finds face's landmarks of the i-frame.
-    """
-
+    '''
+    Extract the eyes and mouth rois of the face in the image passed.
+    :param frame: Image
+    :return: Left eye roi, Right eye roi, Mouth roi
+    '''
     mp_drawing = mp.solutions.drawing_utils
     mp_face_mesh = mp.solutions.face_mesh
 
@@ -333,6 +334,14 @@ def extract_eye_mouth_rois(frame):
 
 
 def extract_roi_coord(width, height, landmarks, indexes):
+    '''
+    Exatract the coordinates of the roi.
+    :param width: Width of the image
+    :param height: Height of the image
+    :param landmarks: Facemesh's landmarks
+    :param indexes: Index of landmarks (of the facemesh's mask) for that specific roi.
+    :return: Coordinates of the roi.
+    '''
     minx = width
     miny = height
     maxy = 0
@@ -354,6 +363,13 @@ def extract_roi_coord(width, height, landmarks, indexes):
 
 
 def detect_blink(eye_event_frame, image, threshold_low, threshold_up):
+    '''
+    Detect the blinking (up and down) of the eye using the variation of the events.
+    :param eye_event_frame: Event's image of the eye
+    :param image: Complete image
+    :param threshold_low: Threshold for blink up
+    :param threshold_up: Threshold for blink down
+    '''
     height, width = eye_event_frame.shape[:2]
     h1 = int(height/2)
     font = cv2.FONT_HERSHEY_SIMPLEX
@@ -391,8 +407,13 @@ def detect_blink(eye_event_frame, image, threshold_low, threshold_up):
                     lineType)
 
 
-
 def detect_mouth_opening(mouth_roi, image, treshold=0.4):
+    '''
+    Detect the opening of the mouth using the variation of the roi.
+    :param mouth_roi: Roi of the mouth
+    :param image: Image
+    :param treshold: Treshold
+    '''
     height, width = mouth_roi.shape[:2]
     ratio = height/width
     font = cv2.FONT_HERSHEY_SIMPLEX
