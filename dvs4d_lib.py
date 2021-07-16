@@ -147,7 +147,7 @@ def optical_flow_farneback(old_event_frame, new_event_frame, landmarks, winSize=
     :param winSize: Size of the window used by OpenCv
     :return: Estimated position of landmarks
     '''
-    flow = cv2.calcOpticalFlowFarneback(old_event_frame, new_event_frame, None, 0.5, 3, winSize, 3, 7, 1.5, 0)
+    flow = cv2.calcOpticalFlowFarneback(old_event_frame, new_event_frame, None, 0.5, 3, winSize, 3, 7, 1.5, O)
     p1 = landmarks.copy()
     for i in range(landmarks.shape[0]):
         p1[i][0] += flow[round(landmarks[i][1]), round(landmarks[i][0])][0]

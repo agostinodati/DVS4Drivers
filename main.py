@@ -5,20 +5,15 @@ import numpy as np
 import matplotlib.pyplot as pl
 import dvs4d_lib
 
-amal1 = "C:/Users/User/Downloads/dvSave-2021_04_23_13_45_03.aedat4"
-amal2 = "D:/Utorrent/dvSave-2021_05_28_18_48_58.aedat4"
-amal3 = "C:/Users/User/Downloads/dvSave-2021_06_28_23_03_03.aedat4"
-ago1 = "D:/Download/mancini.aedat4"
-ago2 = "D:/Download/mancini_notte.aedat4"
 output = "errorlog"
 
 
-def main_optical_flow_naive(timeskip=0):
+def main_optical_flow_naive(filepath, timeskip=0):
     '''
 
     Calculate the optical flow using a naive event visualizer method.
     '''
-    with AedatFile(ago2) as f:
+    with AedatFile(filepath) as f:
 
         # Access dimensions of the event stream
         height, width = f['events'].size
@@ -163,12 +158,12 @@ def main_optical_flow_naive(timeskip=0):
         pl.show()
 
 
-def main_optical_flow_accumulator(timeskip=0):
+def main_optical_flow_accumulator(filepath, timeskip=0):
     '''
 
     Calculate the optical flow using an accumulator of events.
     '''
-    with AedatFile(amal1) as f:
+    with AedatFile(filepath) as f:
 
         # Access dimensions of the event stream
         height, width = f['events'].size
@@ -307,12 +302,12 @@ def main_optical_flow_accumulator(timeskip=0):
         pl.show()
 
 
-def main_blink_mouth(timeskip=0):
+def main_blink_mouth(filepath, timeskip=0):
     '''
-
+    DISCLAIMER: This is a prototype/Test
     Detect mouth opening and blinking.
     '''
-    with AedatFile(ago1) as f:
+    with AedatFile(filepath) as f:
 
         # Access dimensions of the event stream
         height, width = f['events'].size
@@ -397,5 +392,5 @@ def main_blink_mouth(timeskip=0):
 
 
 if __name__ == '__main__':
-    # main_blink_mouth(24)
-    main_optical_flow_accumulator(0)
+    path = input('Plaese, type the aedat4\'s path: ')
+    main_optical_flow_accumulator(path, 0)
